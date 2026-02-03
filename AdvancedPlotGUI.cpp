@@ -38,6 +38,7 @@ private:
     TGTextButton* clearAllButton;
     
     // Canvas options
+    TGCheckButton* sameCanvasCheck;
     TGCheckButton* dividedCanvasCheck;
     TGNumberEntry* nRowsEntry;
     TGNumberEntry* nColsEntry;
@@ -45,6 +46,7 @@ private:
     // Fit options
     TGComboBox* fitFunctionCombo;
     TGTextEntry* customFuncEntry;
+    TGTextEntry* canvasTitleEntry;
     
     // Action buttons
     TGTextButton* plotButton;
@@ -127,9 +129,30 @@ AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h)
     plotGroup->AddFrame(plotButtonFrame, new TGLayoutHints(kLHintsCenterX, 5,5,5,5));
     
     AddFrame(plotGroup, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5,5,5,5));
+
+     // Canvas title
+    TGHorizontalFrame* titleFrame = new TGHorizontalFrame(this);
+    TGLabel* titleLabel = new TGLabel(titleFrame, "Canvas Title:");
+    titleFrame->AddFrame(titleLabel, new TGLayoutHints(kLHintsLeft | kLHintsCenterY, 5,5,2,2));
+    
+    canvasTitleEntry = new TGTextEntry(titleFrame);
+    canvasTitleEntry->SetText("Plot");
+    canvasTitleEntry->Resize(300, 20);
+    titleFrame->AddFrame(canvasTitleEntry, new TGLayoutHints(kLHintsLeft | kLHintsExpandX, 5,5,2,2));
+    AddFrame(titleFrame, new TGLayoutHints(kLHintsExpandX, 5,5,5,5));
+    
+    // Same canvas option
+    //sameCanvasCheck = new TGCheckButton(this, "Same canvas (Overlay)");
+    //AddFrame(sameCanvasCheck, new TGLayoutHints(kLHintsLeft, 5,5,5,5));
     
     // Canvas division options
+    TGHorizontalFrame* divFrame1 = new TGHorizontalFrame(this);
+    sameCanvasCheck = new TGCheckButton(divFrame1, "Same canvas (Overlay)");
+    divFrame1->AddFrame(sameCanvasCheck, new TGLayoutHints(kLHintsLeft | kLHintsCenterY, 5,5,2,2));
+    AddFrame(divFrame1, new TGLayoutHints(kLHintsLeft, 5,5,5,5));
+
     TGHorizontalFrame* divFrame = new TGHorizontalFrame(this);
+
     dividedCanvasCheck = new TGCheckButton(divFrame, "Divide Canvas:");
     divFrame->AddFrame(dividedCanvasCheck, new TGLayoutHints(kLHintsLeft | kLHintsCenterY, 5,5,2,2));
     
@@ -203,7 +226,7 @@ AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h)
 // Browse for file
 // ==========================
 void AdvancedPlotGUI::DoBrowse() {
-    std::cout << "DoBrowse called" << std::endl;
+    //std::cout << "DoBrowse called" << std::endl;
     
     TGFileInfo fi;
     const char* filetypes[] = {
@@ -219,7 +242,7 @@ void AdvancedPlotGUI::DoBrowse() {
     new TGFileDialog(gClient->GetRoot(), this, kFDOpen, &fi);
 
     if (fi.fFilename && strlen(fi.fFilename) > 0) {
-        std::cout << "Selected file: " << fi.fFilename << std::endl;
+        //std::cout << "Selected file: " << fi.fFilename << std::endl;
         fileEntry->SetText(fi.fFilename);
     } else {
         std::cout << "No file selected" << std::endl;
@@ -237,8 +260,7 @@ void AdvancedPlotGUI::DoLoad() {
     }
     
     if (DataReader::ReadFile(filename, currentData)) {
-        std::cout << "Loaded " << currentData.GetNumColumns() << " columns, "
-                  << currentData.GetNumRows() << " rows" << std::endl;
+        //std::cout << "Loaded " << currentData.GetNumColumns() << " columns, "<< currentData.GetNumRows() << " rows" << std::endl;
         addPlotButton->SetEnabled(true);
         plotButton->SetEnabled(true);
     } else {
@@ -251,7 +273,7 @@ void AdvancedPlotGUI::DoLoad() {
 // ==========================
 void AdvancedPlotGUI::DoAddPlot()
 {
-    std::cout << "DoAddPlot called" << std::endl;
+    //std::cout << "DoAddPlot called" << std::endl;
 
     if (currentData.GetNumColumns() == 0) {
         std::cout << "No data loaded!" << std::endl;
@@ -271,7 +293,7 @@ void AdvancedPlotGUI::DoAddPlot()
   
     gClient->WaitFor(dialog);
 
-    std::cout << "Dialog closed, result=" << result << std::endl;
+    //std::cout << "Dialog closed, result=" << result << std::endl;
 
     //delete dialog;
 
@@ -333,65 +355,157 @@ void AdvancedPlotGUI::DoClearAll() {
 // ==========================
 void AdvancedPlotGUI::DoPlot() {
     if (plotConfigs.empty()) {
-        std::cout << "No plots configured!" << std::endl;
+        //std::cout << "No plots configured!" << std::endl;
         return;
     }
     
+    bool sameCanvas = sameCanvasCheck->IsOn();
     bool dividedCanvas = dividedCanvasCheck->IsOn();
     int nRows = (int)nRowsEntry->GetNumber();
     int nCols = (int)nColsEntry->GetNumber();
+    std::string canvasTitle = canvasTitleEntry->GetText();
+    
     FitUtils::FitType fitType = static_cast<FitUtils::FitType>(
         fitFunctionCombo->GetSelected());
     std::string customFunc = customFuncEntry->GetText();
     
     TCanvas* canvas = nullptr;
+    TLegend* legend = nullptr;
     
-    if (dividedCanvas) {
-        canvas = new TCanvas("c_divided", "Plots", 1200, 900);
-        canvas->Divide(nCols, nRows);
-    }
-    
-    int padNum = 1;
-    for (size_t i = 0; i < plotConfigs.size(); ++i) {
-        PlotConfig& config = plotConfigs[i];
-        config.color = (i % 9) + 1; // Cycle through colors
+    // Same canvas mode - overlay all plots
+    if (sameCanvas) {
+        canvas = new TCanvas("c_same", canvasTitle.c_str(), 900, 700);
+        legend = new TLegend(0.65, 0.65, 0.89, 0.89);
+        legend->SetBorderSize(1);
+        legend->SetFillColor(0);
         
-        if (dividedCanvas) {
+        bool firstPlot = true;
+        for (size_t i = 0; i < plotConfigs.size(); ++i) {
+            PlotConfig& config = plotConfigs[i];
+            config.color = (i % 9) + 1;
+            
+            if (config.type == PlotConfig::kTGraph) {
+                TGraph* g = PlotCreator::CreateTGraph(currentData, config);
+                if (g) {
+                    g->SetTitle(canvasTitle.c_str());
+                    g->Draw(firstPlot ? "APL" : "PL SAME");
+                    legend->AddEntry(g, currentData.headers[config.yColumn].c_str(), "lp");
+                    firstPlot = false;
+                    
+                    if (fitType != FitUtils::kNoFit) {
+                        TF1* fit = FitUtils::FitGraph(g, fitType, config.color, customFunc);
+                        if (fit) fit->Draw("SAME");
+                    }
+                }
+            } else if (config.type == PlotConfig::kTGraphErrors) {
+                TGraphErrors* g = PlotCreator::CreateTGraphErrors(currentData, config);
+                if (g) {
+                    g->SetTitle(canvasTitle.c_str());
+                    g->Draw(firstPlot ? "APE" : "PE SAME");
+                    legend->AddEntry(g, currentData.headers[config.yColumn].c_str(), "lpe");
+                    firstPlot = false;
+                    
+                    if (fitType != FitUtils::kNoFit) {
+                        TF1* fit = FitUtils::FitGraph(g, fitType, config.color, customFunc);
+                        if (fit) fit->Draw("SAME");
+                    }
+                }
+            } else if (config.type == PlotConfig::kTH1D) {
+                TH1D* h = PlotCreator::CreateTH1D(currentData, config);
+                if (h) {
+                    h->SetTitle(canvasTitle.c_str());
+                    h->SetLineColor(config.color);
+                    h->Draw(firstPlot ? "" : "SAME");
+                    legend->AddEntry(h, currentData.headers[config.xColumn].c_str(), "l");
+                    firstPlot = false;
+                }
+            }
+        }
+        
+        if (legend && legend->GetNRows() > 0) legend->Draw();
+        canvas->Update();
+    }
+    // Divided canvas mode
+    else if (dividedCanvas) {
+        canvas = new TCanvas("c_divided", canvasTitle.c_str(), 1200, 900);
+        canvas->Divide(nCols, nRows);
+        
+        int padNum = 1;
+        for (size_t i = 0; i < plotConfigs.size(); ++i) {
+            PlotConfig& config = plotConfigs[i];
+            config.color = (i % 9) + 1;
+            
             if (padNum > nRows * nCols) break;
             canvas->cd(padNum++);
-        } else {
-            new TCanvas(Form("c%zu", i), Form("Plot %zu", i), 800, 600);
+            
+            if (config.type == PlotConfig::kTGraph) {
+                TGraph* g = PlotCreator::CreateTGraph(currentData, config);
+                if (g) {
+                    g->Draw("APL");
+                    if (fitType != FitUtils::kNoFit) {
+                        TF1* fit = FitUtils::FitGraph(g, fitType, config.color, customFunc);
+                        if (fit) fit->Draw("SAME");
+                    }
+                }
+            } else if (config.type == PlotConfig::kTGraphErrors) {
+                TGraphErrors* g = PlotCreator::CreateTGraphErrors(currentData, config);
+                if (g) {
+                    g->Draw("APE");
+                    if (fitType != FitUtils::kNoFit) {
+                        TF1* fit = FitUtils::FitGraph(g, fitType, config.color, customFunc);
+                        if (fit) fit->Draw("SAME");
+                    }
+                }
+            } else if (config.type == PlotConfig::kTH1D) {
+                TH1D* h = PlotCreator::CreateTH1D(currentData, config);
+                if (h) h->Draw();
+            } else if (config.type == PlotConfig::kTH2D) {
+                TH2D* h = PlotCreator::CreateTH2D(currentData, config);
+                if (h) h->Draw("COLZ");
+            }
         }
-        
-        // Create appropriate plot type
-        if (config.type == PlotConfig::kTGraph) {
-            TGraph* g = PlotCreator::CreateTGraph(currentData, config);
-            if (g) {
-                g->Draw("APL");
-                if (fitType != FitUtils::kNoFit) {
-                    TF1* fit = FitUtils::FitGraph(g, fitType, config.color, customFunc);
-                    if (fit) fit->Draw("SAME");
+        canvas->Update();
+    }
+    // Separate canvases mode
+    else {
+        for (size_t i = 0; i < plotConfigs.size(); ++i) {
+            PlotConfig& config = plotConfigs[i];
+            config.color = (i % 9) + 1;
+            
+            TCanvas* c = new TCanvas(Form("c%zu", i), 
+                                    Form("%s - %zu", canvasTitle.c_str(), i), 
+                                    800, 600);
+            
+            if (config.type == PlotConfig::kTGraph) {
+                TGraph* g = PlotCreator::CreateTGraph(currentData, config);
+                if (g) {
+                    g->Draw("APL");
+                    if (fitType != FitUtils::kNoFit) {
+                        TF1* fit = FitUtils::FitGraph(g, fitType, config.color, customFunc);
+                        if (fit) fit->Draw("SAME");
+                    }
                 }
-            }
-        } else if (config.type == PlotConfig::kTGraphErrors) {
-            TGraphErrors* g = PlotCreator::CreateTGraphErrors(currentData, config);
-            if (g) {
-                g->Draw("APE");
-                if (fitType != FitUtils::kNoFit) {
-                    TF1* fit = FitUtils::FitGraph(g, fitType, config.color, customFunc);
-                    if (fit) fit->Draw("SAME");
+            } else if (config.type == PlotConfig::kTGraphErrors) {
+                TGraphErrors* g = PlotCreator::CreateTGraphErrors(currentData, config);
+                if (g) {
+                    g->Draw("APE");
+                    if (fitType != FitUtils::kNoFit) {
+                        TF1* fit = FitUtils::FitGraph(g, fitType, config.color, customFunc);
+                        if (fit) fit->Draw("SAME");
+                    }
                 }
+            } else if (config.type == PlotConfig::kTH1D) {
+                TH1D* h = PlotCreator::CreateTH1D(currentData, config);
+                if (h) h->Draw();
+            } else if (config.type == PlotConfig::kTH2D) {
+                TH2D* h = PlotCreator::CreateTH2D(currentData, config);
+                if (h) h->Draw("COLZ");
             }
-        } else if (config.type == PlotConfig::kTH1D) {
-            TH1D* h = PlotCreator::CreateTH1D(currentData, config);
-            if (h) h->Draw();
-        } else if (config.type == PlotConfig::kTH2D) {
-            TH2D* h = PlotCreator::CreateTH2D(currentData, config);
-            if (h) h->Draw("COLZ");
+            
+            c->Update();
         }
     }
     
-    if (canvas) canvas->Update();
     gSystem->ProcessEvents();
 }
 
@@ -399,13 +513,13 @@ void AdvancedPlotGUI::DoPlot() {
 // Process messages
 // ==========================
 Bool_t AdvancedPlotGUI::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2) {
-    std::cout << "ProcessMessage: msg=" << msg << " parm1=" << parm1 << " parm2=" << parm2 << std::endl;
+    //std::cout << "ProcessMessage: msg=" << msg << " parm1=" << parm1 << " parm2=" << parm2 << std::endl;
     
     switch (GET_MSG(msg)) {
         case kC_COMMAND:
             switch (GET_SUBMSG(msg)) {
                 case kCM_BUTTON:
-                    std::cout << "Button clicked: " << parm1 << std::endl;
+                    //std::cout << "Button clicked: " << parm1 << std::endl;
                     if (parm1 == kBrowseButton) {
                         DoBrowse();
                     } else if (parm1 == kLoadButton) {
