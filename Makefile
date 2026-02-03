@@ -1,18 +1,19 @@
-# Makefile for Advanced ROOT Plotting GUI
+# Makefile for Advanced ROOT Plotting GUI (non-PIE, RooFit enabled)
 
 # Compiler
 CXX = g++
 
 # ROOT configuration
 ROOTCFLAGS = $(shell root-config --cflags)
-ROOTLIBS = $(shell root-config --libs)
-ROOTGLIBS = $(shell root-config --glibs)
+ROOTLIBS   = $(shell root-config --libs)
+ROOTGLIBS  = $(shell root-config --glibs)
 
 # Compiler flags
-CXXFLAGS = -Wall -std=c++17 $(ROOTCFLAGS)
+CXXFLAGS = -Wall -std=c++17 $(ROOTCFLAGS) -fno-PIC
 
 # Linker flags
-LDFLAGS = $(ROOTLIBS) $(ROOTGLIBS) -lGui
+# Add RooFit explicitly
+LDFLAGS = $(ROOTLIBS) $(ROOTGLIBS) -lGui -lRooFit -lRooFitCore -no-pie
 
 # Target executable
 TARGET = AdvancedPlotGUI

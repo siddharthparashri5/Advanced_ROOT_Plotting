@@ -15,15 +15,23 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <RooRealVar.h>
+#include <RooDataHist.h>
+#include <RooGaussian.h>
+#include <RooPlot.h>
+#include <RooFitResult.h>
+#include <TH1.h>
 
 #include "DataReader.h"
 #include "ColumnSelector.h"
 #include "PlotTypes.h"
 #include "FitUtils.h"
 
-// ==========================
-// Main GUI Class
-// ==========================
+//TSystem->Load("ColumnSelectorDict.so");
+
+
+////// Main GUI Class ///////
+
 class AdvancedPlotGUI : public TGMainFrame {
 private:
     // File selection
@@ -80,9 +88,8 @@ public:
     Bool_t ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2);
 };
 
-// ==========================
-// Constructor
-// ==========================
+/////// Constructor ////////
+
 AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h) 
     : TGMainFrame(p, w, h) {
 
@@ -222,9 +229,8 @@ AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h)
     MapWindow();
 }
 
-// ==========================
-// Browse for file
-// ==========================
+/////// Browse for file  ////////
+
 void AdvancedPlotGUI::DoBrowse() {
     //std::cout << "DoBrowse called" << std::endl;
     
@@ -249,9 +255,8 @@ void AdvancedPlotGUI::DoBrowse() {
     }
 }
 
-// ==========================
-// Load data file
-// ==========================
+/////// Load data file ///////
+
 void AdvancedPlotGUI::DoLoad() {
     const char* filename = fileEntry->GetText();
     if (!filename || strlen(filename) == 0) {
@@ -268,9 +273,8 @@ void AdvancedPlotGUI::DoLoad() {
     }
 }
 
-// ==========================
-// Add plot configuration
-// ==========================
+/////// Add plot configuration ///////
+
 void AdvancedPlotGUI::DoAddPlot()
 {
     //std::cout << "DoAddPlot called" << std::endl;
@@ -329,9 +333,8 @@ void AdvancedPlotGUI::DoAddPlot()
 }
 
 
-// ==========================
-// Remove selected plot
-// ==========================
+/////// Remove selected plot ///////
+
 void AdvancedPlotGUI::DoRemovePlot() {
     int selected = plotListBox->GetSelected();
     if (selected >= 0) {
@@ -341,23 +344,65 @@ void AdvancedPlotGUI::DoRemovePlot() {
     }
 }
 
-// ==========================
-// Clear all plots
-// ==========================
+/////// Clear all plots ////////
+
 void AdvancedPlotGUI::DoClearAll() {
     plotConfigs.clear();
     plotListBox->RemoveAll();
     plotListBox->Layout();
 }
 
-// ==========================
-// Create plots
-// ==========================
-void AdvancedPlotGUI::DoPlot() {
-    if (plotConfigs.empty()) {
-        //std::cout << "No plots configured!" << std::endl;
+//////// Unified Fit Handler /////////
+
+void ApplyFit(
+    TObject* obj,
+    FitUtils::FitType fitType,
+    int color,
+    const std::string& customFunc
+) {
+    if (fitType == FitUtils::kNoFit || !obj) return;
+
+    // ---------- RooFit Gaussian for Histograms ----------
+    if (fitType == FitUtils::kGaus && obj->InheritsFrom(TH1::Class())) {
+        TH1* h = static_cast<TH1*>(obj);
+
+        RooRealVar x("x", "x", h->GetXaxis()->GetXmin(),h->GetXaxis()->GetXmax());
+
+        RooDataHist data("data", "data", x, h);
+
+        RooRealVar mean("mean", "Mean", h->GetMean());
+        RooRealVar sigma("sigma", "Sigma", h->GetRMS());
+
+        RooGaussian gauss("gauss", "Gaussian", x, mean, sigma);
+        gauss.fitTo(data, RooFit::PrintLevel(-1));
+
+        RooPlot* frame = x.frame();
+        data.plotOn(frame);
+        gauss.plotOn(frame);
+        frame->Draw("SAME");
+
+        std::cout << "[RooFit] Mean=" << mean.getVal()
+                  << " Sigma=" << sigma.getVal() << std::endl;
         return;
     }
+
+    // ---------- TF1 Fits (Graphs + Hists) ----------
+    if (obj->InheritsFrom(TGraph::Class())) {
+        TGraph* g = static_cast<TGraph*>(obj);
+        TF1* f = FitUtils::FitGraph(g, fitType, color, customFunc);
+        if (f) f->Draw("SAME");
+    }
+    else if (obj->InheritsFrom(TH1::Class())) {
+        TH1* h = static_cast<TH1*>(obj);
+        TF1* f = FitUtils::FitHist(h, fitType, color, customFunc);
+        if (f) f->Draw("SAME");
+    }
+}
+
+/////// Create plots ///////
+
+void AdvancedPlotGUI::DoPlot() {
+    if (plotConfigs.empty()) return;
     
     bool sameCanvas = sameCanvasCheck->IsOn();
     bool dividedCanvas = dividedCanvasCheck->IsOn();
@@ -372,30 +417,64 @@ void AdvancedPlotGUI::DoPlot() {
     TCanvas* canvas = nullptr;
     TLegend* legend = nullptr;
     
-    // Same canvas mode - overlay all plots
+    // Helper lambda for RooFit Gaussian
+    auto applyRooFitGaussian = [&](TH1D* h, int color) {
+        if (!h) return;
+        h->Sumw2();
+        for (int i = 1; i <= h->GetNbinsX(); ++i) {
+            if (h->GetBinError(i) <= 0) h->SetBinError(i, 1.0);
+        }
+
+        RooRealVar x("x", "x", h->GetXaxis()->GetXmin(), h->GetXaxis()->GetXmax());
+        RooDataHist data("data", "data", x, h);
+
+        double meanInit = h->GetMean();
+        double rmsInit  = h->GetRMS();
+        RooRealVar mean("mean", "Mean", meanInit, h->GetXaxis()->GetXmin(), h->GetXaxis()->GetXmax());
+        RooRealVar sigma("sigma", "Sigma", rmsInit > 0 ? rmsInit : 1.0, 1e-3, h->GetXaxis()->GetXmax()-h->GetXaxis()->GetXmin());
+
+        RooGaussian gauss("gauss", "Gaussian", x, mean, sigma);
+        RooFitResult* r = gauss.fitTo(data, RooFit::PrintLevel(-1), RooFit::Save(true));
+
+        RooPlot* frame = x.frame();
+        data.plotOn(frame);
+        gauss.plotOn(frame);
+        frame->Draw("SAME");
+
+        // Stats box
+        TPaveText* pt = new TPaveText(0.65,0.6,0.9,0.8,"NDC");
+        pt->SetFillColor(0);
+        pt->SetBorderSize(1);
+        pt->SetTextAlign(12);
+        pt->SetTextSize(0.03);
+        pt->AddText("Fit: Gaussian (RooFit)");
+        pt->AddText(Form("Mean = %.3f", mean.getVal()));
+        pt->AddText(Form("Sigma = %.3f", sigma.getVal()));
+        pt->Draw("SAME");
+    };
+    
+    
+    //////  SAME CANVAS MODE /////////
+    
     if (sameCanvas) {
         canvas = new TCanvas("c_same", canvasTitle.c_str(), 900, 700);
         legend = new TLegend(0.65, 0.65, 0.89, 0.89);
         legend->SetBorderSize(1);
         legend->SetFillColor(0);
-        
         bool firstPlot = true;
+
         for (size_t i = 0; i < plotConfigs.size(); ++i) {
             PlotConfig& config = plotConfigs[i];
             config.color = (i % 9) + 1;
-            
+
             if (config.type == PlotConfig::kTGraph) {
                 TGraph* g = PlotCreator::CreateTGraph(currentData, config);
                 if (g) {
                     g->SetTitle(canvasTitle.c_str());
                     g->Draw(firstPlot ? "APL" : "PL SAME");
                     legend->AddEntry(g, currentData.headers[config.yColumn].c_str(), "lp");
+                    ApplyFit(g, fitType, config.color, customFunc);
                     firstPlot = false;
-                    
-                    if (fitType != FitUtils::kNoFit) {
-                        TF1* fit = FitUtils::FitGraph(g, fitType, config.color, customFunc);
-                        if (fit) fit->Draw("SAME");
-                    }
                 }
             } else if (config.type == PlotConfig::kTGraphErrors) {
                 TGraphErrors* g = PlotCreator::CreateTGraphErrors(currentData, config);
@@ -403,115 +482,97 @@ void AdvancedPlotGUI::DoPlot() {
                     g->SetTitle(canvasTitle.c_str());
                     g->Draw(firstPlot ? "APE" : "PE SAME");
                     legend->AddEntry(g, currentData.headers[config.yColumn].c_str(), "lpe");
+                    ApplyFit(g, fitType, config.color, customFunc);
                     firstPlot = false;
-                    
-                    if (fitType != FitUtils::kNoFit) {
-                        TF1* fit = FitUtils::FitGraph(g, fitType, config.color, customFunc);
-                        if (fit) fit->Draw("SAME");
-                    }
                 }
             } else if (config.type == PlotConfig::kTH1D) {
                 TH1D* h = PlotCreator::CreateTH1D(currentData, config);
                 if (h) {
                     h->SetTitle(canvasTitle.c_str());
                     h->SetLineColor(config.color);
-                    h->Draw(firstPlot ? "" : "SAME");
+                    h->Draw(firstPlot ? "HIST" : "HIST SAME");
                     legend->AddEntry(h, currentData.headers[config.xColumn].c_str(), "l");
                     firstPlot = false;
+
+                    if (fitType == FitUtils::kGaus) {
+                        applyRooFitGaussian(h, config.color);
+                    } else {
+                        ApplyFit(h, fitType, config.color, customFunc);
+                    }
                 }
             }
         }
-        
         if (legend && legend->GetNRows() > 0) legend->Draw();
         canvas->Update();
     }
-    // Divided canvas mode
+    
+    /////// DIVIDED CANVAS MODE  ////////
     else if (dividedCanvas) {
         canvas = new TCanvas("c_divided", canvasTitle.c_str(), 1200, 900);
         canvas->Divide(nCols, nRows);
-        
+
         int padNum = 1;
         for (size_t i = 0; i < plotConfigs.size(); ++i) {
             PlotConfig& config = plotConfigs[i];
             config.color = (i % 9) + 1;
-            
             if (padNum > nRows * nCols) break;
             canvas->cd(padNum++);
-            
+
             if (config.type == PlotConfig::kTGraph) {
                 TGraph* g = PlotCreator::CreateTGraph(currentData, config);
-                if (g) {
-                    g->Draw("APL");
-                    if (fitType != FitUtils::kNoFit) {
-                        TF1* fit = FitUtils::FitGraph(g, fitType, config.color, customFunc);
-                        if (fit) fit->Draw("SAME");
-                    }
-                }
+                if (g) { g->Draw("APL"); ApplyFit(g, fitType, config.color, customFunc); }
             } else if (config.type == PlotConfig::kTGraphErrors) {
                 TGraphErrors* g = PlotCreator::CreateTGraphErrors(currentData, config);
-                if (g) {
-                    g->Draw("APE");
-                    if (fitType != FitUtils::kNoFit) {
-                        TF1* fit = FitUtils::FitGraph(g, fitType, config.color, customFunc);
-                        if (fit) fit->Draw("SAME");
-                    }
-                }
+                if (g) { g->Draw("APE"); ApplyFit(g, fitType, config.color, customFunc); }
             } else if (config.type == PlotConfig::kTH1D) {
                 TH1D* h = PlotCreator::CreateTH1D(currentData, config);
-                if (h) h->Draw();
+                if (h) {
+                    h->Draw();
+                    if (fitType == FitUtils::kGaus) applyRooFitGaussian(h, config.color);
+                    else ApplyFit(h, fitType, config.color, customFunc);
+                }
             } else if (config.type == PlotConfig::kTH2D) {
                 TH2D* h = PlotCreator::CreateTH2D(currentData, config);
-                if (h) h->Draw("COLZ");
+                if (h) { h->Draw("COLZ"); ApplyFit(h, fitType, config.color, customFunc); }
             }
         }
         canvas->Update();
     }
-    // Separate canvases mode
+    
+    ////// SEPARATE CANVAS MODE ////////
     else {
         for (size_t i = 0; i < plotConfigs.size(); ++i) {
             PlotConfig& config = plotConfigs[i];
             config.color = (i % 9) + 1;
-            
-            TCanvas* c = new TCanvas(Form("c%zu", i), 
-                                    Form("%s - %zu", canvasTitle.c_str(), i), 
-                                    800, 600);
-            
+
+            TCanvas* c = new TCanvas(Form("c%zu", i), Form("%s - %zu", canvasTitle.c_str(), i), 800, 600);
+
             if (config.type == PlotConfig::kTGraph) {
                 TGraph* g = PlotCreator::CreateTGraph(currentData, config);
-                if (g) {
-                    g->Draw("APL");
-                    if (fitType != FitUtils::kNoFit) {
-                        TF1* fit = FitUtils::FitGraph(g, fitType, config.color, customFunc);
-                        if (fit) fit->Draw("SAME");
-                    }
-                }
+                if (g) { g->Draw("APL"); ApplyFit(g, fitType, config.color, customFunc); }
             } else if (config.type == PlotConfig::kTGraphErrors) {
                 TGraphErrors* g = PlotCreator::CreateTGraphErrors(currentData, config);
-                if (g) {
-                    g->Draw("APE");
-                    if (fitType != FitUtils::kNoFit) {
-                        TF1* fit = FitUtils::FitGraph(g, fitType, config.color, customFunc);
-                        if (fit) fit->Draw("SAME");
-                    }
-                }
+                if (g) { g->Draw("APE"); ApplyFit(g, fitType, config.color, customFunc); }
             } else if (config.type == PlotConfig::kTH1D) {
                 TH1D* h = PlotCreator::CreateTH1D(currentData, config);
-                if (h) h->Draw();
+                if (h) {
+                    h->Draw();
+                    if (fitType == FitUtils::kGaus) applyRooFitGaussian(h, config.color);
+                    else ApplyFit(h, fitType, config.color, customFunc);
+                }
             } else if (config.type == PlotConfig::kTH2D) {
                 TH2D* h = PlotCreator::CreateTH2D(currentData, config);
-                if (h) h->Draw("COLZ");
+                if (h) { h->Draw("COLZ"); ApplyFit(h, fitType, config.color, customFunc); }
             }
-            
             c->Update();
         }
     }
-    
     gSystem->ProcessEvents();
 }
 
-// ==========================
-// Process messages
-// ==========================
+
+/////// Process messages ///////
+
 Bool_t AdvancedPlotGUI::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2) {
     //std::cout << "ProcessMessage: msg=" << msg << " parm1=" << parm1 << " parm2=" << parm2 << std::endl;
     
@@ -541,13 +602,37 @@ Bool_t AdvancedPlotGUI::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2) {
 }
 
 
+//////// Main /////////
 
-// ==========================
-// Main
-// ==========================
 int main(int argc, char** argv) {
+
+    // -------- Batch Mode --------
+    if (argc >= 3 && std::string(argv[1]) == "--batch") {
+        ColumnData data;
+        if (!DataReader::ReadFile(argv[2], data)) {
+            std::cerr << "Failed to read file\n";
+            return 1;
+        }
+
+        PlotConfig cfg;
+        cfg.type = PlotConfig::kTH1D;
+        cfg.xColumn = 0;
+        cfg.bins = 100;
+
+        TCanvas c("batch", "Batch Plot", 800, 600);
+        TH1D* h = PlotCreator::CreateTH1D(data, cfg);
+        if (h) {
+            h->Draw();
+            c.SaveAs("batch_output.png");
+            c.SaveAs("batch_output.pdf");
+        }
+        return 0;
+    }
+
+    // -------- GUI Mode --------
     TApplication app("AdvancedPlotApp", &argc, argv);
-    AdvancedPlotGUI* gui = new AdvancedPlotGUI(gClient->GetRoot(), 600, 700);
+    AdvancedPlotGUI* gui =
+        new AdvancedPlotGUI(gClient->GetRoot(), 600, 700);
     app.Run();
     return 0;
 }

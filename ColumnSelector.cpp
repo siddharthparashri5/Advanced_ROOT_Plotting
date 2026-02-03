@@ -54,9 +54,9 @@ ColumnSelectorDialog::ColumnSelectorDialog(const TGWindow* parent,
 
 	mainFrame->AddFrame(typeGroup, new TGLayoutHints(kLHintsExpandX,5,5,5,5));
 
-	// ===========================
+	//////////////////////////////
 	// Column selection
-	// ===========================
+	//////////////////////////////
 	TGGroupFrame* colGroup = new TGGroupFrame(mainFrame, "Column Selection");
 	TGVerticalFrame* colFrame = new TGVerticalFrame(colGroup);
 	
@@ -113,9 +113,9 @@ ColumnSelectorDialog::ColumnSelectorDialog(const TGWindow* parent,
     colGroup->AddFrame(colFrame, new TGLayoutHints(kLHintsExpandX,5,5,5,5));
     mainFrame->AddFrame(colGroup, new TGLayoutHints(kLHintsExpandX,5,5,5,5));
 
-    // ===========================
+    //////////////////////////////
     // Buttons
-    // ===========================
+    //////////////////////////////
     TGHorizontalFrame* buttonFrame = new TGHorizontalFrame(mainFrame);
     okButton = new TGTextButton(buttonFrame, "OK", 1);
     okButton->Associate(this);

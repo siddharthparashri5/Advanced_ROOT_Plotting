@@ -14,9 +14,9 @@
 #include <iostream>
 #include <algorithm>
 
-// ==========================
+//////////////////////////////
 // Data structure to hold column data
-// ==========================
+//////////////////////////////
 struct ColumnData {
     std::vector<std::string> headers;      // Column names/headers
     std::vector<std::vector<double>> data; // Column data
@@ -28,9 +28,9 @@ struct ColumnData {
     }
 };
 
-// ==========================
+//////////////////////////////
 // DataReader class
-// ==========================
+//////////////////////////////
 class DataReader {
 public:
     enum FileType {

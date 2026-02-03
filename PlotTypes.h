@@ -13,15 +13,15 @@
 #include "DataReader.h"
 #include "FitUtils.h"
 
-// ==========================
+//////////////////////////////
 // Plot configuration
-// ==========================
+//////////////////////////////
 struct PlotConfig {
     enum PlotType {
         kTGraph,
         kTGraphErrors,
         kTH1D,
-        kTH2D
+        kTH2D,
     };
     
     PlotType type;
@@ -32,17 +32,19 @@ struct PlotConfig {
     std::string title;
     std::string xTitle;
     std::string yTitle;
+    int bins;
     int color;
     int markerStyle;
     
+    
     PlotConfig() : type(kTGraph), xColumn(-1), yColumn(-1), 
-                   xErrColumn(-1), yErrColumn(-1),
+                   xErrColumn(-1), yErrColumn(-1), bins(100), 
                    color(kBlue), markerStyle(20) {}
 };
 
-// ==========================
+//////////////////////////////
 // PlotCreator class
-// ==========================
+//////////////////////////////
 class PlotCreator {
 public:
     

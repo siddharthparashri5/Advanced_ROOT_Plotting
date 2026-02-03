@@ -13,9 +13,9 @@
 #include "PlotTypes.h"
 
 
-// ==========================
+//////////////////////////////
 // Column Selector Dialog
-// ==========================
+//////////////////////////////
 class ColumnSelectorDialog : public TGTransientFrame {
 private:
     const ColumnData* data;
