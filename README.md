@@ -2,6 +2,10 @@
 
 A modular, extensible GUI for creating various types of plots from data files in ROOT.
 
+***********************************************************
+Initially develpoed and maintian by Dr. Siddharth Parashari
+***********************************************************
+
 ## Features
 
 ### Supported Input Formats
@@ -25,13 +29,15 @@ A modular, extensible GUI for creating various types of plots from data files in
 ## Project Structure
 
 ```
-├── AdvancedPlotGUI.cpp   # Main GUI application
-├── DataReader.h          # File I/O for different formats
-├── ColumnSelector.h      # Dialog for selecting columns
-├── PlotTypes.h           # Plot creation functions
-├── FitUtils.h            # Fitting utilities
-├── Makefile              # Build configuration
-└── README.md             # This file
+├── AdvancedPlotGUI.cpp     # Main GUI application
+├── ColumnSelector.cpp      # GUI for selecting columns
+├── ColumnSelector.h        # header file for selecting columns
+├── ColumnSelectorLinkDef.h # Linking class
+├── DataReader.h            # File I/O for different formats
+├── PlotTypes.h             # Plot creation functions
+├── FitUtils.h              # Fitting utilities
+├── Makefile                # Build configuration
+└── README.md               # This file
 ```
 
 ## Compilation
@@ -89,6 +95,7 @@ Power law:         [0]*x^[1]
 Double exp:        [0]*exp(-[1]*x) + [2]*exp(-[3]*x)
 Lorentzian:        [0]/((x-[1])^2 + [2]^2)
 Sine + linear:     [0]*sin([1]*x+[2]) + [3]*x + [4]
+Custom user functions
 ```
 
 ## Data File Format
