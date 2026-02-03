@@ -62,9 +62,14 @@ public:
         if (nPoints == 0) return nullptr;
         
         TGraph* graph = new TGraph(nPoints, xData.data(), yData.data());
-        graph->SetTitle(config.title.c_str());
-        graph->GetXaxis()->SetTitle(config.xTitle.c_str());
-        graph->GetYaxis()->SetTitle(config.yTitle.c_str());
+        
+        // Use column headers for axis titles if available, otherwise use config titles
+        std::string xTitle = data.headers[config.xColumn].empty() ? config.xTitle : data.headers[config.xColumn];
+        std::string yTitle = data.headers[config.yColumn].empty() ? config.yTitle : data.headers[config.yColumn];
+        
+        graph->SetTitle(Form("%s;%s;%s", config.title.c_str(), xTitle.c_str(), yTitle.c_str()));
+        graph->GetXaxis()->SetTitle(xTitle.c_str());
+        graph->GetYaxis()->SetTitle(yTitle.c_str());
         graph->SetLineColor(config.color);
         graph->SetMarkerColor(config.color);
         graph->SetMarkerStyle(config.markerStyle);
@@ -119,9 +124,13 @@ public:
                                     zeroErr.data(), zeroErr.data());
         }
         
-        graph->SetTitle(config.title.c_str());
-        graph->GetXaxis()->SetTitle(config.xTitle.c_str());
-        graph->GetYaxis()->SetTitle(config.yTitle.c_str());
+        // Use column headers for axis titles if available
+        std::string xTitle = data.headers[config.xColumn].empty() ? config.xTitle : data.headers[config.xColumn];
+        std::string yTitle = data.headers[config.yColumn].empty() ? config.yTitle : data.headers[config.yColumn];
+        
+        graph->SetTitle(Form("%s;%s;%s", config.title.c_str(), xTitle.c_str(), yTitle.c_str()));
+        graph->GetXaxis()->SetTitle(xTitle.c_str());
+        graph->GetYaxis()->SetTitle(yTitle.c_str());
         graph->SetLineColor(config.color);
         graph->SetMarkerColor(config.color);
         graph->SetMarkerStyle(config.markerStyle);
@@ -150,15 +159,17 @@ public:
             xMax += 0.1 * range;
         }
         
-        TH1D* hist = new TH1D(Form("h1_%p", (void*)&config), config.title.c_str(),
+        // Use column header for x-axis title
+        std::string xTitle = data.headers[config.xColumn].empty() ? config.xTitle : data.headers[config.xColumn];
+        
+        TH1D* hist = new TH1D(Form("h1_%p", (void*)&config), 
+                             Form("%s;%s;Entries", config.title.c_str(), xTitle.c_str()),
                              nBins, xMin, xMax);
         
         for (double val : xData) {
             hist->Fill(val);
         }
         
-        hist->GetXaxis()->SetTitle(config.xTitle.c_str());
-        hist->GetYaxis()->SetTitle("Entries");
         hist->SetLineColor(config.color);
         hist->SetLineWidth(2);
         
@@ -200,15 +211,17 @@ public:
             yMax += 0.1 * range;
         }
         
-        TH2D* hist = new TH2D(Form("h2_%p", (void*)&config), config.title.c_str(),
+        // Use column headers for axis titles
+        std::string xTitle = data.headers[config.xColumn].empty() ? config.xTitle : data.headers[config.xColumn];
+        std::string yTitle = data.headers[config.yColumn].empty() ? config.yTitle : data.headers[config.yColumn];
+        
+        TH2D* hist = new TH2D(Form("h2_%p", (void*)&config), 
+                             Form("%s;%s;%s", config.title.c_str(), xTitle.c_str(), yTitle.c_str()),
                              nBinsX, xMin, xMax, nBinsY, yMin, yMax);
         
         for (int i = 0; i < nPoints; ++i) {
             hist->Fill(xData[i], yData[i]);
         }
-        
-        hist->GetXaxis()->SetTitle(config.xTitle.c_str());
-        hist->GetYaxis()->SetTitle(config.yTitle.c_str());
         
         return hist;
     }
