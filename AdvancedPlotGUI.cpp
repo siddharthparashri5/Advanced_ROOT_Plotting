@@ -1,9 +1,3 @@
-
-
-
-
-
-
 #include <TGClient.h>
 #include <TGButton.h>
 #include <TGFileDialog.h>
