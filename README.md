@@ -28,8 +28,8 @@ Initially developed and maintained by Dr. Siddharth Parashari.
 - Fitting: Supports predefined functions (Gaussian, Polynomial, Sine, etc.) and custom TF1 functions
 - Flexible Configuration: Each plot can be configured independently
 
-### Project Structure
-
+## Project Structure
+```
 ├── AdvancedPlotGUI.cpp     # Main GUI application
 ├── ColumnSelector.cpp      # GUI for selecting columns
 ├── ColumnSelector.h        # Header file for column selector
@@ -39,7 +39,7 @@ Initially developed and maintained by Dr. Siddharth Parashari.
 ├── FitUtils.h              # Fitting utilities
 ├── Makefile                # Build configuration
 └── README.md               # This file
-
+```
 ## Requirements
 - ROOT 6.x or later (with GUI libraries enabled)
 - C++11 or later compiler
@@ -49,15 +49,15 @@ Initially developed and maintained by Dr. Siddharth Parashari.
   make
 
 ## Manual Compilation 
- g++ -o AdvancedPlotGUI AdvancedPlotGUI.cpp `root-config --cflags --libs` -lGui
+ ``` g++ -o AdvancedPlotGUI AdvancedPlotGUI.cpp `root-config --cflags --libs` -lGui ```
 
 ## ROOT Dictionary Generation (if needed)
-rootcling -f ColumnSelectorDict.cpp -c ColumnSelector.h ColumnSelectorLinkDef.h
+``` rootcling -f ColumnSelectorDict.cpp -c ColumnSelector.h ColumnSelectorLinkDef.h ```
 
 ## Usage
 
 ### 1. Start the application
-./AdvancedPlotGUI
+``` ./AdvancedPlotGUI ```
 
 ### 2. Load data
 - Click Browse to select a file (.txt, .dat, .csv, or .root)
@@ -86,27 +86,32 @@ rootcling -f ColumnSelectorDict.cpp -c ColumnSelector.h ColumnSelectorLinkDef.h
 - Math functions: sin(x), exp(x), sqrt(x), log(x), pow(x,n)
 
 ### Examples:
-
+```
 Quadratic:         [0]*x^2 + [1]*x + [2]
 Power law:         [0]*x^[1]
 Double exponential:[0]*exp(-[1]*x) + [2]*exp(-[3]*x)
 Lorentzian:        [0]/((x-[1])^2 + [2]^2)
 Sine + linear:     [0]*sin([1]*x+[2]) + [3]*x + [4]
+```
 
 ## Data File Format 
 
 ### 1. Text/DAT files:
-- # Optional comment line 
+```
+# Optional comment line 
 x1  y1  x2  y2 ...
 0.0 1.5 2.3 4.1
 1.0 2.3 3.4 5.2
 ...
+```
 
 ### 2. CSV files:
+```
 x,y,xerr,yerr
 0.0,1.5,0.1,0.2
 1.0,2.3,0.1,0.3
 ...
+```
 
 ### 3. ROOT files:
 - Must contain at least one TTree
