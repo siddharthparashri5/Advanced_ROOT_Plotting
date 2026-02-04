@@ -1,0 +1,23 @@
+# Documentation (auto-generated)
+docs/doxygen/html/
+docs/doxygen/latex/
+docs/doxygen/xml/
+
+# Build files
+build/
+*.o
+*.so
+
+# ROOT files
+*.root
+
+# Backup and temporary files
+*.bak
+*.tmp
+*~
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+

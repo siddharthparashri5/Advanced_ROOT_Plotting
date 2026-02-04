@@ -6,7 +6,7 @@
 #---------------------------------------------------------------------------
 
 DOXYFILE_ENCODING      = UTF-8
-PROJECT_NAME           = "Advanced ROOT Plotting"
+PROJECT_NAME           = "AdvanceROOTGUI"
 PROJECT_NUMBER         = "1.0"
 PROJECT_BRIEF          = "Advanced GUI for ROOT data visualization and analysis"
 PROJECT_LOGO           = 
