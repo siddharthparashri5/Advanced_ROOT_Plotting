@@ -44,7 +44,7 @@ ColumnSelectorDialog::ColumnSelectorDialog(const TGWindow* parent,
     typeGroup->AddFrame(radioTH3D, new TGLayoutHints(kLHintsLeft,5,5,2,2));
 
 	// Default selection
-	radioNone->SetOn();
+	//radioNone->SetOn();
 
 	// Connect each radio button to UpdateColumnVisibility
 	radioTGraph->Connect("Clicked()", "ColumnSelectorDialog", this, "UpdateColumnVisibility()");

@@ -22,6 +22,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <TRint.h>
 
 #include "DataReader.h"
 #include "ColumnSelector.h"
@@ -143,7 +144,7 @@ AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h)
     titleFrame->AddFrame(titleLabel, new TGLayoutHints(kLHintsLeft | kLHintsCenterY, 5,5,2,2));
     
     canvasTitleEntry = new TGTextEntry(titleFrame);
-    canvasTitleEntry->SetText("Plot");
+    canvasTitleEntry->SetText("hist");
     canvasTitleEntry->Resize(300, 20);
     titleFrame->AddFrame(canvasTitleEntry, new TGLayoutHints(kLHintsLeft | kLHintsExpandX, 5,5,2,2));
     AddFrame(titleFrame, new TGLayoutHints(kLHintsExpandX, 5,5,5,5));
@@ -547,7 +548,7 @@ void AdvancedPlotGUI::DoPlot() {
                 if (h) { h->Draw("COLZ"); ApplyFit(h, fitType, config.color, customFunc); }
             } else if (config.type == PlotConfig::kTH3D) {
                 TH3D* h = PlotCreator::CreateTH3D(currentData, config);
-                if (h) { h->Draw("COLZ"); }
+                if (h) { h->Draw(); }
             }
 
         }
@@ -590,7 +591,7 @@ void AdvancedPlotGUI::DoPlot() {
                 if (h) { h->Draw("COLZ"); ApplyFit(h, fitType, config.color, customFunc); }
             } else if (config.type == PlotConfig::kTH3D) {
                 TH3D* h = PlotCreator::CreateTH3D(currentData, config);
-                if (h) { h->Draw("COLZ"); }
+                if (h) { h->Draw("ISO"); }
             }
             c->Update();
         }
@@ -655,10 +656,12 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    // -------- GUI Mode --------
-    TApplication app("AdvancedPlotApp", &argc, argv);
+    // -------- GUI + ROOT Prompt Mode --------
+    TRint app("AdvancedPlotApp", &argc, argv);
+
     AdvancedPlotGUI* gui =
         new AdvancedPlotGUI(gClient->GetRoot(), 600, 700);
-    app.Run();
+
+    app.Run();   // ROOT prompt + GUI
     return 0;
 }

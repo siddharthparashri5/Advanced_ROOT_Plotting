@@ -20,7 +20,7 @@ TARGET = AdvancedPlotGUI
 
 # Source files
 SOURCES = AdvancedPlotGUI.cpp ColumnSelector.cpp
-HEADERS = DataReader.h ColumnSelector.h PlotTypes.h FitUtils.h ColumnSelectorLinkDef.h
+HEADERS = DataReader.h ColumnSelector.h PlotTypes.h FitUtils.h ColumnSelectorLinkDef.h AdvancedPlotGUI.h
 
 # Object files
 OBJECTS = $(SOURCES:.cpp=.o)

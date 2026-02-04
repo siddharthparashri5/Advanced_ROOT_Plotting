@@ -305,7 +305,7 @@ public:
     	}
 
     	return hist;
-	}
+    }
 
 };
 
