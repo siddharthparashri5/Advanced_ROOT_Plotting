@@ -14,6 +14,7 @@ A modular, extensible GUI for creating various types of plots from data files in
 - **TGraphErrors** - Scatter plots with error bars (x and/or y errors)
 - **TH1D** - 1D histograms
 - **TH2D** - 2D histograms (heatmaps)
+- **TH3D** - 3D histograms (heatmaps)
 
 ### Features
 - **Column Selection**: Choose which columns to use for x, y, and errors
@@ -21,20 +22,29 @@ A modular, extensible GUI for creating various types of plots from data files in
 - **Canvas Division**: Arrange plots in a grid (e.g., 2x2, 3x3)
 - **Fitting**: Supports predefined functions (Gaussian, Polynomial, Sine, etc.) and custom functions
 - **Flexible Configuration**: Each plot can be configured independently
+- **Error Handling**
+
 
 ## Project Structure
 
 ```
 ├── AdvancedPlotGUI.cpp   # Main GUI application
+├── ColumnSelector.cpp    # for selecting columns
 ├── DataReader.h          # File I/O for different formats
 ├── ColumnSelector.h      # Dialog for selecting columns
 ├── PlotTypes.h           # Plot creation functions
+├── Errorhandling.h           # Error Handling functions
 ├── FitUtils.h            # Fitting utilities
 ├── Makefile              # Build configuration
 └── README.md             # This file
 ```
 
 ## Compilation
+
+### Generate ROOT dictionary
+```
+rootcling -f ColumnSelectorDict.cpp -c ColumnSelector.h ColumnSelectorLinkDef.h
+```
 
 ### Simple compilation:
 ```bash
@@ -65,7 +75,7 @@ g++ -o AdvancedPlotGUI AdvancedPlotGUI.cpp `root-config --cflags --libs` -lGui
 
 ### 4. Configure display
 - Check **Divide Canvas** to arrange multiple plots in a grid
-- Set number of rows and columns
+- Set the number of rows and columns
 - Select a fit function if desired
 - For custom fits, enter a ROOT TF1 formula (e.g., `[0]*sin([1]*x+[2])`)
 
@@ -124,8 +134,8 @@ Edit `FitUtils.h` and add to the `FitType` enum and `GetFitFunctions()` map.
 
 ## Requirements
 
-- ROOT 6.x or later
-- C++11 or later compiler
+- ROOT 6.28 or later
+- C++17 or later compiler
 - GUI libraries enabled in ROOT build
 
 ## License
