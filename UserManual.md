@@ -13,9 +13,8 @@
 3. [Installation](#installation)
 4. [Feature Descriptions](#feature-descriptions)
 5. [Example Workflows](#example-workflows)
-6. [Keyboard Shortcuts](#keyboard-shortcuts)
-7. [Troubleshooting](#troubleshooting)
-8. [FAQ](#faq)
+6. [Troubleshooting](#troubleshooting)
+7. [FAQ](#faq)
 
 ---
 
