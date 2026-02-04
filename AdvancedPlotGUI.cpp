@@ -513,7 +513,7 @@ void AdvancedPlotGUI::DoPlot() {
                 }
             }
         }
-        if (legend && legend->GetNRows() > 0) legend->Draw();
+        legend->Draw();
         canvas->Update();
     }
     
@@ -561,20 +561,30 @@ void AdvancedPlotGUI::DoPlot() {
             config.color = (i % 9) + 1;
 
             TCanvas* c = new TCanvas(Form("c%zu", i), Form("%s - %zu", canvasTitle.c_str(), i), 800, 600);
+            TLegend* legend = new TLegend(0.65, 0.65, 0.89, 0.89);
+            legend->SetBorderSize(1);
+            legend->SetFillColor(0);
 
             if (config.type == PlotConfig::kTGraph) {
                 TGraph* g = PlotCreator::CreateTGraph(currentData, config);
-                if (g) { g->Draw("APL"); ApplyFit(g, fitType, config.color, customFunc); }
+                if (g) { g->Draw("AP"); 
+                legend->AddEntry(g, currentData.headers[config.yColumn].c_str(), "p");
+                ApplyFit(g, fitType, config.color, customFunc); }
+                legend->Draw();
             } else if (config.type == PlotConfig::kTGraphErrors) {
                 TGraphErrors* g = PlotCreator::CreateTGraphErrors(currentData, config);
-                if (g) { g->Draw("APE"); ApplyFit(g, fitType, config.color, customFunc); }
+                if (g) { g->Draw("APE"); 
+                legend->AddEntry(g, currentData.headers[config.yColumn].c_str(), "pe");
+                ApplyFit(g, fitType, config.color, customFunc); }
+                legend->Draw();
             } else if (config.type == PlotConfig::kTH1D) {
                 TH1D* h = PlotCreator::CreateTH1D(currentData, config);
                 if (h) {
                     h->Draw();
+                    legend->AddEntry(h, currentData.headers[config.xColumn].c_str(), "l");
                     if (fitType == FitUtils::kGaus) applyRooFitGaussian(h, config.color);
                     else ApplyFit(h, fitType, config.color, customFunc);
-                }
+                } legend->Draw();
             } else if (config.type == PlotConfig::kTH2D) {
                 TH2D* h = PlotCreator::CreateTH2D(currentData, config);
                 if (h) { h->Draw("COLZ"); ApplyFit(h, fitType, config.color, customFunc); }
