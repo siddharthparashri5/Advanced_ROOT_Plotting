@@ -1,0 +1,4 @@
+[ libColumnSelector.so ]
+# List of selected classes
+class ColumnSelectorDialog
+header ColumnSelector.h

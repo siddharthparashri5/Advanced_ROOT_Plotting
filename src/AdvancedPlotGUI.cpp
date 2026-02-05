@@ -5,9 +5,18 @@
 #include <TGNumberEntry.h>
 #include <TGLayout.h>
 #include <TGListBox.h>
+#include <TGTextEdit.h>
 #include <TGComboBox.h>
 #include <TGLabel.h>
 #include <TGMsgBox.h>
+#include <TGTextView.h>
+#include <TGTextBuffer.h>
+#include <TGScrollBar.h>
+#include <TGFrame.h>
+#include <TGTab.h>
+#include <TPython.h>
+#include <TObjString.h>
+
 #include <TApplication.h>
 #include <TSystem.h>
 #include <TROOT.h>
@@ -26,11 +35,58 @@
 #include <string>
 #include <TRint.h>
 
+#include <fstream>
+#include <cstdlib>
+#include <sstream>
+
 #include "DataReader.h"
 #include "ColumnSelector.h"
 #include "PlotTypes.h"
 #include "FitUtils.h"
 #include "ErrorHandling.h"
+
+// Custom stream buffer that redirects to TGTextEdit
+class TextEditStreamBuf : public std::streambuf {
+private:
+    TGTextEdit* textEdit;
+    std::string buffer;
+    
+public:
+    TextEditStreamBuf(TGTextEdit* edit) : textEdit(edit) {}
+    
+protected:
+    virtual int overflow(int c) override {
+        if (c != EOF) {
+            if (c == '\n') {
+                // Flush line to text edit
+                TGText* txt = textEdit->GetText();
+                if (!buffer.empty()) {
+                    txt->InsText(TGLongPosition(txt->RowCount(), 0), buffer.c_str());
+                    buffer.clear();
+                }
+                txt->InsText(TGLongPosition(txt->RowCount(), 0), "\n");
+                textEdit->Layout();
+                textEdit->SetVsbPosition(txt->RowCount());
+                gSystem->ProcessEvents();
+            } else {
+                buffer += static_cast<char>(c);
+            }
+        }
+        return c;
+    }
+    
+    virtual int sync() override {
+        if (!buffer.empty()) {
+            TGText* txt = textEdit->GetText();
+            txt->InsText(TGLongPosition(txt->RowCount(), 0), buffer.c_str());
+            buffer.clear();
+            textEdit->Layout();
+            textEdit->SetVsbPosition(txt->RowCount());
+            gSystem->ProcessEvents();
+        }
+        return 0;
+    }
+};
 
 // ==========================
 // Main GUI Class
@@ -62,6 +118,19 @@ private:
     // Action buttons
     TGTextButton* plotButton;
     
+    // Script panel components
+    TGTab* scriptTab;
+    TGTextEdit* scriptEditor;        // Multi-line script editor
+    TGTextEntry* commandEntry;       // Single-line command entry
+    TGTextEdit* outputView;          // Output display
+    TGComboBox* scriptLangCombo;
+    TGTextButton* runScriptButton;
+    TGTextButton* runCommandButton;
+    TGTextButton* loadScriptButton;
+    TGTextButton* saveScriptButton;
+    TGTextButton* clearEditorButton;
+    TGTextButton* clearOutputButton;
+    
     // Data storage
     ColumnData currentData;
     std::vector<PlotConfig> plotConfigs;
@@ -71,13 +140,25 @@ private:
     // Store opened ROOT file
     TFile* currentRootFile;
     
+    // Stream redirectors
+    TextEditStreamBuf* coutBuf;
+    TextEditStreamBuf* cerrBuf;
+    std::streambuf* oldCoutBuf;
+    std::streambuf* oldCerrBuf;
+    
     enum {
         kBrowseButton = 100,
         kLoadButton,
         kAddPlotButton,
         kRemovePlotButton,
         kClearAllButton,
-        kPlotButton
+        kPlotButton,
+        kRunScriptButton = 200,
+        kRunCommandButton,
+        kLoadScriptButton,
+        kSaveScriptButton,
+        kClearEditorButton,
+        kClearOutputButton
     };
 
 public:
@@ -91,13 +172,22 @@ public:
     void DoClearAll();
     void DoPlot();
     
+    // Script panel methods
+    void DoRunScript();
+    void DoRunCommand();
+    void DoLoadScript();
+    void DoSaveScript();
+    void DoClearEditor();
+    void DoClearOutput();
+    
     Bool_t ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2);
 };
 
 /////// Constructor ////////
 
 AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h) 
-    : TGMainFrame(p, w, h), currentRootFile(nullptr) {
+    : TGMainFrame(p, w, h), currentRootFile(nullptr),
+      coutBuf(nullptr), cerrBuf(nullptr), oldCoutBuf(nullptr), oldCerrBuf(nullptr) {
 
     fMainFrame = this;
 
@@ -129,7 +219,7 @@ AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h)
     addPlotButton->SetEnabled(false);
     
     plotListBox = new TGListBox(plotGroup);
-    plotListBox->Resize(500, 150);
+    plotListBox->Resize(500, 100);
     plotGroup->AddFrame(plotListBox, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5,5,5,5));
     
     TGHorizontalFrame* plotButtonFrame = new TGHorizontalFrame(plotGroup);
@@ -141,9 +231,9 @@ AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h)
     plotButtonFrame->AddFrame(clearAllButton, new TGLayoutHints(kLHintsCenterX, 5,5,2,2));
     plotGroup->AddFrame(plotButtonFrame, new TGLayoutHints(kLHintsCenterX, 5,5,5,5));
     
-    AddFrame(plotGroup, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5,5,5,5));
+    AddFrame(plotGroup, new TGLayoutHints(kLHintsExpandX, 5,5,5,5));
 
-     // Canvas title
+    // Canvas title
     TGHorizontalFrame* titleFrame = new TGHorizontalFrame(this);
     TGLabel* titleLabel = new TGLabel(titleFrame, "Canvas Title:");
     titleFrame->AddFrame(titleLabel, new TGLayoutHints(kLHintsLeft | kLHintsCenterY, 5,5,2,2));
@@ -153,10 +243,6 @@ AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h)
     canvasTitleEntry->Resize(300, 20);
     titleFrame->AddFrame(canvasTitleEntry, new TGLayoutHints(kLHintsLeft | kLHintsExpandX, 5,5,2,2));
     AddFrame(titleFrame, new TGLayoutHints(kLHintsExpandX, 5,5,5,5));
-    
-    // Same canvas option
-    //sameCanvasCheck = new TGCheckButton(this, "Same canvas (Overlay)");
-    //AddFrame(sameCanvasCheck, new TGLayoutHints(kLHintsLeft, 5,5,5,5));
     
     // Canvas division options
     TGHorizontalFrame* divFrame1 = new TGHorizontalFrame(this);
@@ -222,13 +308,100 @@ AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h)
     customFrame->AddFrame(customFuncEntry, new TGLayoutHints(kLHintsLeft | kLHintsExpandX, 5,5,2,2));
     
     AddFrame(customFrame, new TGLayoutHints(kLHintsExpandX, 5,5,5,5));
-    
+
     // Plot button
     plotButton = new TGTextButton(this, "Create Plots", kPlotButton);
     plotButton->Associate(this);
     AddFrame(plotButton, new TGLayoutHints(kLHintsCenterX, 5,5,10,10));
     plotButton->SetEnabled(false);
 
+    /////////////////////////////////////////////////////////////////////////
+    // ---------- Script Panel with Tabs ----------
+    /////////////////////////////////////////////////////////////////////////
+    
+    TGGroupFrame* scriptGroup = new TGGroupFrame(this, "Script Panel");
+    AddFrame(scriptGroup, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5,5,5,5));
+    
+    // Language selection and file operations
+    TGHorizontalFrame* scriptControlFrame = new TGHorizontalFrame(scriptGroup);
+    
+    TGLabel* langLabel = new TGLabel(scriptControlFrame, "Language:");
+    scriptControlFrame->AddFrame(langLabel, new TGLayoutHints(kLHintsLeft | kLHintsCenterY, 5,5,2,2));
+    
+    scriptLangCombo = new TGComboBox(scriptControlFrame);
+    scriptLangCombo->AddEntry("ROOT/C++", 0);
+    scriptLangCombo->AddEntry("Python", 1);
+    scriptLangCombo->Select(0);
+    scriptLangCombo->Resize(120, 20);
+    scriptControlFrame->AddFrame(scriptLangCombo, new TGLayoutHints(kLHintsLeft, 5,5,2,2));
+    
+    loadScriptButton = new TGTextButton(scriptControlFrame, "Load Script", kLoadScriptButton);
+    loadScriptButton->Associate(this);
+    scriptControlFrame->AddFrame(loadScriptButton, new TGLayoutHints(kLHintsLeft, 10,5,2,2));
+    
+    saveScriptButton = new TGTextButton(scriptControlFrame, "Save Script", kSaveScriptButton);
+    saveScriptButton->Associate(this);
+    scriptControlFrame->AddFrame(saveScriptButton, new TGLayoutHints(kLHintsLeft, 5,5,2,2));
+    
+    scriptGroup->AddFrame(scriptControlFrame, new TGLayoutHints(kLHintsLeft, 5,5,5,5));
+    
+    // Create tab widget for script editor and output
+    scriptTab = new TGTab(scriptGroup, 600, 300);
+    
+    // --- Script Editor Tab ---
+    TGCompositeFrame* editorTab = scriptTab->AddTab("Script Editor");
+    
+    scriptEditor = new TGTextEdit(editorTab, 600, 200);
+    editorTab->AddFrame(scriptEditor, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5,5,5,5));
+    
+    TGHorizontalFrame* editorButtonFrame = new TGHorizontalFrame(editorTab);
+    
+    runScriptButton = new TGTextButton(editorButtonFrame, "Run Script", kRunScriptButton);
+    runScriptButton->Associate(this);
+    editorButtonFrame->AddFrame(runScriptButton, new TGLayoutHints(kLHintsLeft, 5,5,2,2));
+    
+    clearEditorButton = new TGTextButton(editorButtonFrame, "Clear Editor", kClearEditorButton);
+    clearEditorButton->Associate(this);
+    editorButtonFrame->AddFrame(clearEditorButton, new TGLayoutHints(kLHintsLeft, 5,5,2,2));
+    
+    editorTab->AddFrame(editorButtonFrame, new TGLayoutHints(kLHintsLeft, 5,5,5,5));
+    
+    // --- Command Line Tab ---
+    TGCompositeFrame* commandTab = scriptTab->AddTab("Command Line");
+    
+    TGLabel* cmdLabel = new TGLabel(commandTab, "Enter command (press Enter to execute):");
+    commandTab->AddFrame(cmdLabel, new TGLayoutHints(kLHintsLeft, 5,5,5,2));
+    
+    commandEntry = new TGTextEntry(commandTab);
+    commandEntry->Resize(580, 20);
+    commandEntry->Associate(this);
+    commandTab->AddFrame(commandEntry, new TGLayoutHints(kLHintsExpandX, 5,5,2,5));
+    
+    runCommandButton = new TGTextButton(commandTab, "Execute Command", kRunCommandButton);
+    runCommandButton->Associate(this);
+    commandTab->AddFrame(runCommandButton, new TGLayoutHints(kLHintsLeft, 5,5,5,5));
+    
+    // --- Output Tab ---
+    TGCompositeFrame* outputTab = scriptTab->AddTab("Output");
+    
+    outputView = new TGTextEdit(outputTab, 600, 200);
+    outputView->SetReadOnly(kTRUE);
+    outputTab->AddFrame(outputView, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5,5,5,5));
+    
+    clearOutputButton = new TGTextButton(outputTab, "Clear Output", kClearOutputButton);
+    clearOutputButton->Associate(this);
+    outputTab->AddFrame(clearOutputButton, new TGLayoutHints(kLHintsLeft, 5,5,5,5));
+    
+    scriptGroup->AddFrame(scriptTab, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5,5,5,5));
+    
+    // Redirect cout and cerr to output view
+    coutBuf = new TextEditStreamBuf(outputView);
+    cerrBuf = new TextEditStreamBuf(outputView);
+    oldCoutBuf = std::cout.rdbuf(coutBuf);
+    oldCerrBuf = std::cerr.rdbuf(cerrBuf);
+    
+    /////////////////////////////////////////////////////////////////////////
+    
     SetWindowName("Advanced Plot GUI");
     MapSubwindows();
     Resize(GetDefaultSize());
@@ -239,6 +412,14 @@ AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h)
 // Destructor
 // ==========================
 AdvancedPlotGUI::~AdvancedPlotGUI() {
+    // Restore original stream buffers
+    if (oldCoutBuf) std::cout.rdbuf(oldCoutBuf);
+    if (oldCerrBuf) std::cerr.rdbuf(oldCerrBuf);
+    
+    // Delete custom stream buffers
+    if (coutBuf) delete coutBuf;
+    if (cerrBuf) delete cerrBuf;
+    
     // Close ROOT file if open
     if (currentRootFile && currentRootFile->IsOpen()) {
         currentRootFile->Close();
@@ -382,7 +563,7 @@ void AdvancedPlotGUI::DoAddPlot()
                         currentData.headers[config.yColumn].c_str());
             break;
         case PlotConfig::kTH3D:
-            desc = Form("TH3D: %s vs %s",
+            desc = Form("TH3D: %s vs %s vs %s",
                         currentData.headers[config.xColumn].c_str(),
                         currentData.headers[config.yColumn].c_str(),
                         currentData.headers[config.zColumn].c_str());
@@ -392,7 +573,6 @@ void AdvancedPlotGUI::DoAddPlot()
     plotListBox->AddEntry(desc.c_str(), plotConfigs.size() - 1);
     plotListBox->Layout();
 }
-
 
 /////// Remove selected plot ///////
 
@@ -414,6 +594,164 @@ void AdvancedPlotGUI::DoClearAll() {
         plotConfigs.clear();
         plotListBox->RemoveAll();
         plotListBox->Layout();
+    }
+}
+
+//////// Script Panel Methods /////////
+
+void AdvancedPlotGUI::DoRunScript() {
+    if (!scriptEditor) return;
+
+    int lang = scriptLangCombo->GetSelected(); // 0=C++, 1=Python
+    TString fullScript = scriptEditor->GetText()->AsString();
+    
+    if (fullScript.IsNull() || fullScript.IsWhitespace()) {
+        std::cout << "Script editor is empty." << std::endl;
+        return;
+    }
+    
+    std::cout << "=== Executing Script ===" << std::endl;
+    
+    // Split into lines
+    std::vector<TString> lines;
+    TObjArray* tokens = fullScript.Tokenize("\n");
+    for (Int_t i = 0; i < tokens->GetEntries(); ++i) {
+        TString line = ((TObjString*)tokens->At(i))->GetString();
+        line = line.Strip(TString::kBoth);
+        if (!line.IsNull() && !line.BeginsWith("//") && !line.BeginsWith("#")) {
+            lines.push_back(line);
+        }
+    }
+    delete tokens;
+    
+    // Execute each line
+    for (const auto& line : lines) {
+        if (lang == 0) {
+            // ROOT/C++
+            gROOT->ProcessLine(line);
+        } else if (lang == 1) {
+            // Python
+            TPython::Exec(line);
+        }
+        
+        std::cout.flush();
+        std::cerr.flush();
+        
+        // Update canvases
+        TIter nextCanvas(gROOT->GetListOfCanvases());
+        TCanvas* c;
+        while ((c = (TCanvas*)nextCanvas())) {
+            c->Modified();
+            c->Update();
+        }
+        gSystem->ProcessEvents();
+    }
+    
+    std::cout << "=== Script Execution Complete ===" << std::endl;
+}
+
+void AdvancedPlotGUI::DoRunCommand() {
+    if (!commandEntry) return;
+    
+    TString command = commandEntry->GetText();
+    command = command.Strip(TString::kBoth);
+    
+    if (command.IsNull()) return;
+    
+    int lang = scriptLangCombo->GetSelected();
+    
+    std::cout << "> " << command.Data() << std::endl;
+    
+    if (lang == 0) {
+        // ROOT/C++
+        gROOT->ProcessLine(command);
+    } else if (lang == 1) {
+        // Python
+        TPython::Exec(command);
+    }
+    
+    std::cout.flush();
+    std::cerr.flush();
+    
+    // Update canvases
+    TIter nextCanvas(gROOT->GetListOfCanvases());
+    TCanvas* c;
+    while ((c = (TCanvas*)nextCanvas())) {
+        c->Modified();
+        c->Update();
+    }
+    gSystem->ProcessEvents();
+    
+    // Clear command entry for next command
+    commandEntry->Clear();
+}
+
+void AdvancedPlotGUI::DoLoadScript() {
+    TGFileInfo fi;
+    const char* filetypes[] = {
+        "C++ files", "*.C",
+        "C++ files", "*.cpp",
+        "Python files", "*.py",
+        "All files", "*",
+        0, 0
+    };
+    fi.fFileTypes = filetypes;
+
+    new TGFileDialog(gClient->GetRoot(), this, kFDOpen, &fi);
+
+    if (fi.fFilename && strlen(fi.fFilename) > 0) {
+        std::ifstream file(fi.fFilename);
+        if (file.is_open()) {
+            std::stringstream buffer;
+            buffer << file.rdbuf();
+            file.close();
+            
+            scriptEditor->LoadFile(fi.fFilename);
+            
+            // Auto-detect language from extension
+            std::string filename(fi.fFilename);
+            if (filename.find(".py") != std::string::npos) {
+                scriptLangCombo->Select(1); // Python
+            } else {
+                scriptLangCombo->Select(0); // C++
+            }
+            
+            std::cout << "Loaded script: " << fi.fFilename << std::endl;
+        } else {
+            ShowError(this, "Error", "Failed to open script file.");
+        }
+    }
+}
+
+void AdvancedPlotGUI::DoSaveScript() {
+    TGFileInfo fi;
+    const char* filetypes[] = {
+        "C++ files", "*.C",
+        "Python files", "*.py",
+        "All files", "*",
+        0, 0
+    };
+    fi.fFileTypes = filetypes;
+
+    new TGFileDialog(gClient->GetRoot(), this, kFDSave, &fi);
+
+    if (fi.fFilename && strlen(fi.fFilename) > 0) {
+        scriptEditor->SaveFile(fi.fFilename);
+        std::cout << "Saved script to: " << fi.fFilename << std::endl;
+    }
+}
+
+void AdvancedPlotGUI::DoClearEditor() {
+    if (scriptEditor) {
+        scriptEditor->Clear();
+        std::cout << "Script editor cleared." << std::endl;
+    }
+}
+
+void AdvancedPlotGUI::DoClearOutput() {
+    if (outputView) {
+        outputView->Clear();
+        gSystem->ProcessEvents();
     }
 }
 
@@ -472,6 +810,7 @@ void AdvancedPlotGUI::DoPlot() {
         return;
     }
     
+    gROOT->cd();
     bool sameCanvas = sameCanvasCheck->IsOn();
     bool dividedCanvas = dividedCanvasCheck->IsOn();
     int nRows = (int)nRowsEntry->GetNumber();
@@ -502,7 +841,7 @@ void AdvancedPlotGUI::DoPlot() {
         RooRealVar sigma("sigma", "Sigma", rmsInit > 0 ? rmsInit : 1.0, 1e-3, h->GetXaxis()->GetXmax()-h->GetXaxis()->GetXmin());
 
         RooGaussian gauss("gauss", "Gaussian", x, mean, sigma);
-        RooFitResult* r = gauss.fitTo(data, RooFit::PrintLevel(-1), RooFit::Save(true));
+        gauss.fitTo(data, RooFit::PrintLevel(-1), RooFit::Save(true));
 
         RooPlot* frame = x.frame();
         data.plotOn(frame);
@@ -520,7 +859,6 @@ void AdvancedPlotGUI::DoPlot() {
         pt->AddText(Form("Sigma = %.3f", sigma.getVal()));
         pt->Draw("SAME");
     };
-    
     
     //////  SAME CANVAS MODE /////////
     
@@ -540,6 +878,7 @@ void AdvancedPlotGUI::DoPlot() {
                 if (g) {
                     g->SetTitle(canvasTitle.c_str());
                     g->Draw(firstPlot ? "APL" : "PL SAME");
+                    gROOT->GetListOfGlobals()->Add(g);
                     legend->AddEntry(g, currentData.headers[config.yColumn].c_str(), "lp");
                     ApplyFit(g, fitType, config.color, customFunc);
                     firstPlot = false;
@@ -549,6 +888,7 @@ void AdvancedPlotGUI::DoPlot() {
                 if (g) {
                     g->SetTitle(canvasTitle.c_str());
                     g->Draw(firstPlot ? "APE" : "PE SAME");
+                    gROOT->GetListOfGlobals()->Add(g);
                     legend->AddEntry(g, currentData.headers[config.yColumn].c_str(), "lpe");
                     ApplyFit(g, fitType, config.color, customFunc);
                     firstPlot = false;
@@ -559,6 +899,7 @@ void AdvancedPlotGUI::DoPlot() {
                     h->SetTitle(canvasTitle.c_str());
                     h->SetLineColor(config.color);
                     h->Draw(firstPlot ? "HIST" : "HIST SAME");
+                    gROOT->GetListOfGlobals()->Add(h);
                     legend->AddEntry(h, currentData.headers[config.xColumn].c_str(), "l");
                     firstPlot = false;
 
@@ -586,35 +927,43 @@ void AdvancedPlotGUI::DoPlot() {
             if (padNum > nRows * nCols) break;
             canvas->cd(padNum++);
 
-            TLegend* legend = new TLegend(0.65, 0.65, 0.89, 0.89);
-            legend->SetBorderSize(1);
-            legend->SetFillColor(0);
-
             if (config.type == PlotConfig::kTGraph) {
                 TGraph* g = PlotCreator::CreateTGraph(currentData, config);
-                if (g) { g->Draw("APL"); ApplyFit(g, fitType, config.color, customFunc); 
-                legend->AddEntry(g, currentData.headers[config.yColumn].c_str(), "p");}
-            }
-            else if (config.type == PlotConfig::kTGraphErrors) {
+                if (g) {
+                    g->Draw("APL");
+                    gROOT->GetListOfGlobals()->Add(g);
+                    ApplyFit(g, fitType, config.color, customFunc);
+                }
+            } else if (config.type == PlotConfig::kTGraphErrors) {
                 TGraphErrors* g = PlotCreator::CreateTGraphErrors(currentData, config);
-                if (g) {g->Draw("APE");ApplyFit(g, fitType, config.color, customFunc); 
-                legend->AddEntry(g, currentData.headers[config.yColumn].c_str(), "p");}
-            }
-            else if (config.type == PlotConfig::kTH1D) {
+                if (g) {
+                    g->Draw("APE");
+                    gROOT->GetListOfGlobals()->Add(g);
+                    ApplyFit(g, fitType, config.color, customFunc);
+                }
+            } else if (config.type == PlotConfig::kTH1D) {
                 TH1* h = PlotCreator::CreateTH1D(currentData, config);
-                if (h) {h->Draw();
+                if (h) {
+                    h->Draw();
+                    gROOT->GetListOfGlobals()->Add(h);
                     if (fitType == FitUtils::kGaus) applyRooFitGaussian(h, config.color);
                     else ApplyFit(h, fitType, config.color, customFunc);
-                legend->AddEntry(h, currentData.headers[config.yColumn].c_str(), "l");}
-            }
-            else if (config.type == PlotConfig::kTH2D) {
+                }
+            } else if (config.type == PlotConfig::kTH2D) {
                 TH2* h = PlotCreator::CreateTH2D(currentData, config);
-                if (h) { h->Draw("COLZ"); ApplyFit(h, fitType, config.color, customFunc);}
+                if (h) {
+                    h->Draw("COLZ");
+                    gROOT->GetListOfGlobals()->Add(h);
+                    ApplyFit(h, fitType, config.color, customFunc);
+                }
             } else if (config.type == PlotConfig::kTH3D) {
                 TH3* h = PlotCreator::CreateTH3D(currentData, config);
-                if (h) { h->Draw("colz"); }
+                if (h) {
+                    h->Draw("ISO");
+                    gROOT->GetListOfGlobals()->Add(h);
+                }
             }
-            if (legend->GetNRows() > 0) legend->Draw();}
+        }
         canvas->Update();
     }
     
@@ -625,43 +974,48 @@ void AdvancedPlotGUI::DoPlot() {
             config.color = (i % 9) + 1;
 
             TCanvas* c = new TCanvas(Form("c%zu", i), Form("%s - %zu", canvasTitle.c_str(), i), 800, 600);
-            TLegend* legend = new TLegend(0.65, 0.65, 0.89, 0.89);
-            legend->SetBorderSize(1);
-            legend->SetFillColor(0);
 
             if (config.type == PlotConfig::kTGraph) {
                 TGraph* g = PlotCreator::CreateTGraph(currentData, config);
-                if (g) { g->Draw("AP"); 
-                    legend->AddEntry(g, currentData.headers[config.yColumn].c_str(), "p");
-                    ApplyFit(g, fitType, config.color, customFunc); }
-                legend->Draw();
+                if (g) {
+                    g->Draw("AP");
+                    gROOT->GetListOfGlobals()->Add(g);
+                    ApplyFit(g, fitType, config.color, customFunc);
+                }
             } else if (config.type == PlotConfig::kTGraphErrors) {
                 TGraphErrors* g = PlotCreator::CreateTGraphErrors(currentData, config);
-                if (g) { g->Draw("APE"); 
-                    legend->AddEntry(g, currentData.headers[config.yColumn].c_str(), "pe");
-                    ApplyFit(g, fitType, config.color, customFunc); }
-                legend->Draw();
+                if (g) {
+                    g->Draw("APE");
+                    gROOT->GetListOfGlobals()->Add(g);
+                    ApplyFit(g, fitType, config.color, customFunc);
+                }
             } else if (config.type == PlotConfig::kTH1D) {
                 TH1* h = PlotCreator::CreateTH1D(currentData, config);
                 if (h) {
                     h->Draw();
-                    legend->AddEntry(h, currentData.headers[config.xColumn].c_str(), "l");
+                    gROOT->GetListOfGlobals()->Add(h);
                     if (fitType == FitUtils::kGaus) applyRooFitGaussian(h, config.color);
                     else ApplyFit(h, fitType, config.color, customFunc);
-                } legend->Draw();
+                }
             } else if (config.type == PlotConfig::kTH2D) {
                 TH2* h = PlotCreator::CreateTH2D(currentData, config);
-                if (h) { h->Draw("COLZ"); ApplyFit(h, fitType, config.color, customFunc); }
+                if (h) {
+                    h->Draw("COLZ");
+                    gROOT->GetListOfGlobals()->Add(h);
+                    ApplyFit(h, fitType, config.color, customFunc);
+                }
             } else if (config.type == PlotConfig::kTH3D) {
                 TH3* h = PlotCreator::CreateTH3D(currentData, config);
-                if (h) { h->Draw("colz"); }
+                if (h) {
+                    h->Draw("ISO");
+                    gROOT->GetListOfGlobals()->Add(h);
+                }
             }
             c->Update();
         }
     }
     gSystem->ProcessEvents();
 }
-
 
 /////// Process messages ///////
 
@@ -670,7 +1024,6 @@ Bool_t AdvancedPlotGUI::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2) {
         case kC_COMMAND:
             switch (GET_SUBMSG(msg)) {
                 case kCM_BUTTON:
-                    //std::cout << "Button clicked: " << parm1 << std::endl;
                     if (parm1 == kBrowseButton) {
                         DoBrowse();
                     } else if (parm1 == kLoadButton) {
@@ -683,6 +1036,28 @@ Bool_t AdvancedPlotGUI::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2) {
                         DoClearAll();
                     } else if (parm1 == kPlotButton) {
                         DoPlot();
+                    } else if (parm1 == kRunScriptButton) {
+                        DoRunScript();
+                    } else if (parm1 == kRunCommandButton) {
+                        DoRunCommand();
+                    } else if (parm1 == kLoadScriptButton) {
+                        DoLoadScript();
+                    } else if (parm1 == kSaveScriptButton) {
+                        DoSaveScript();
+                    } else if (parm1 == kClearEditorButton) {
+                        DoClearEditor();
+                    } else if (parm1 == kClearOutputButton) {
+                        DoClearOutput();
+                    }
+                    break;
+            }
+            break;
+        case kC_TEXTENTRY:
+            switch (GET_SUBMSG(msg)) {
+                case kTE_ENTER:
+                    // Handle Enter key press in command entry
+                    if (commandEntry && parm1 == (Long_t)commandEntry->WidgetId()) {
+                        DoRunCommand();
                     }
                     break;
             }
@@ -690,7 +1065,6 @@ Bool_t AdvancedPlotGUI::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2) {
     }
     return kTRUE;
 }
-
 
 //////// Main /////////
 
@@ -722,8 +1096,7 @@ int main(int argc, char** argv) {
     // -------- GUI + ROOT Prompt Mode --------
     TRint app("AdvancedPlotApp", &argc, argv);
 
-    AdvancedPlotGUI* gui =
-        new AdvancedPlotGUI(gClient->GetRoot(), 600, 700);
+    new AdvancedPlotGUI(gClient->GetRoot(), 700, 900);
 
     app.Run();   // ROOT prompt + GUI
     return 0;
