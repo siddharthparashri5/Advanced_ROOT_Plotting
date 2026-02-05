@@ -28,7 +28,7 @@ ColumnSelectorDialog::ColumnSelectorDialog(const TGWindow* parent,
     // ===========================
     TGGroupFrame* typeGroup = new TGGroupFrame(mainFrame, "Plot Type");
         	// Create radio buttons
-    radioNone = new TGCheckButton(typeGroup, "None", 0);
+    //radioNone = new TGCheckButton(typeGroup, "None", 0);
     radioTGraph = new TGCheckButton(typeGroup, "TGraph (x vs y)", 1);
 	radioTGraphErrors = new TGCheckButton(typeGroup, "TGraphErrors (x vs y with errors)", 2);
 	radioTH1D = new TGCheckButton(typeGroup, "TH1D (histogram of x)", 3);
@@ -36,7 +36,7 @@ ColumnSelectorDialog::ColumnSelectorDialog(const TGWindow* parent,
     radioTH3D = new TGCheckButton(typeGroup, "TH3D (3D histogram x vs y vs z)", 5);
 
     // Add to type group layout
-    typeGroup->AddFrame(radioNone, new TGLayoutHints(kLHintsLeft,5,5,2,2));
+    //typeGroup->AddFrame(radioNone, new TGLayoutHints(kLHintsLeft,5,5,2,2));
     typeGroup->AddFrame(radioTGraph, new TGLayoutHints(kLHintsLeft,5,5,2,2));
 	typeGroup->AddFrame(radioTGraphErrors, new TGLayoutHints(kLHintsLeft,5,5,2,2));
 	typeGroup->AddFrame(radioTH1D, new TGLayoutHints(kLHintsLeft,5,5,2,2));
@@ -52,7 +52,7 @@ ColumnSelectorDialog::ColumnSelectorDialog(const TGWindow* parent,
 	radioTH1D->Connect("Clicked()", "ColumnSelectorDialog", this, "UpdateColumnVisibility()");
 	radioTH2D->Connect("Clicked()", "ColumnSelectorDialog", this, "UpdateColumnVisibility()");
     radioTH3D->Connect("Clicked()", "ColumnSelectorDialog", this, "UpdateColumnVisibility()");
-	radioNone->Connect("Clicked()", "ColumnSelectorDialog", this, "UpdateColumnVisibility()");
+	//radioNone->Connect("Clicked()", "ColumnSelectorDialog", this, "UpdateColumnVisibility()");
 
 
 	mainFrame->AddFrame(typeGroup, new TGLayoutHints(kLHintsExpandX,5,5,5,5));
@@ -189,38 +189,32 @@ void ColumnSelectorDialog::DoCancel() {
     DeleteWindow();
 }
 
-void ColumnSelectorDialog::UpdateColumnVisibility() {
-    if (radioTGraphErrors->IsOn()) {
-        xErrCombo->SetEnabled(true);
-        yErrCombo->SetEnabled(true);
-    } else {
-        xErrCombo->SetEnabled(false);
-        yErrCombo->SetEnabled(false);
-    }
+void ColumnSelectorDialog::UpdateColumnVisibility()
+{
+    // ---- Identify active plot type ----
+    bool graph   = radioTGraph->IsOn();
+    bool graphE  = radioTGraphErrors->IsOn();
+    bool h1      = radioTH1D->IsOn();
+    bool h2      = radioTH2D->IsOn();
+    bool h3      = radioTH3D->IsOn();
 
-    xColumnCombo->SetEnabled(radioTGraph->IsOn() || radioTGraphErrors->IsOn() ||
-                             radioTH1D->IsOn() || radioTH2D->IsOn() || radioTH3D->IsOn());
+    // ---- Enforce single selection ----
+    if(graph){radioTGraphErrors->SetOn(false);radioTH1D->SetOn(false);radioTH2D->SetOn(false);radioTH3D->SetOn(false);}
+    else if(graphE){radioTGraph->SetOn(false);radioTH1D->SetOn(false);radioTH2D->SetOn(false);radioTH3D->SetOn(false);}
+    else if(h1){radioTGraph->SetOn(false);radioTGraphErrors->SetOn(false);radioTH2D->SetOn(false);radioTH3D->SetOn(false);}
+    else if(h2){radioTGraph->SetOn(false);radioTGraphErrors->SetOn(false);radioTH1D->SetOn(false);radioTH3D->SetOn(false);}
+    else if(h3){radioTGraph->SetOn(false);radioTGraphErrors->SetOn(false);radioTH1D->SetOn(false);radioTH2D->SetOn(false);}    
+    
 
-    yColumnCombo->SetEnabled(radioTGraph->IsOn() || radioTGraphErrors->IsOn() || radioTH2D->IsOn() || radioTH3D->IsOn());
+    // ---- Enable / Disable columns ----
+    xColumnCombo->SetEnabled((graph || graphE || h1 || h2 || h3));
+    yColumnCombo->SetEnabled((graph || graphE || h2 || h3));
+    zColumnCombo->SetEnabled(h3);
 
-    zColumnCombo->SetEnabled(radioTH3D->IsOn());
-
-    if (radioNone->IsOn()) {
-        xColumnCombo->SetEnabled(false);
-        yColumnCombo->SetEnabled(false);
-        xErrCombo->SetEnabled(false);
-        yErrCombo->SetEnabled(false);
-
-        radioTGraph->SetOn(false);
-        radioTGraphErrors->SetOn(false);
-        radioTH1D->SetOn(false);
-        radioTH2D->SetOn(false);
-        radioTH3D->SetOn(false);
-    } else {
-        if (radioTGraph->IsOn() || radioTGraphErrors->IsOn() || radioTH1D->IsOn() || radioTH2D->IsOn() || radioTH3D->IsOn())
-            radioNone->SetOn(false);
-    }
+    xErrCombo->SetEnabled(graphE);
+    yErrCombo->SetEnabled(graphE);
 }
+
 
 Bool_t ColumnSelectorDialog::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2) {
     switch (GET_MSG(msg)) {
