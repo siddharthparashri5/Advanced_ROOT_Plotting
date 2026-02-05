@@ -155,8 +155,8 @@ make
      - Edit PlotTypes.h and add new creation methods to PlotCreator.
      - Edit PlotTypes.h and add new creation methods to PlotCreator.
    - Adding new fit functions:
-    - Edit FitUtils.h, add to the FitType enum and GetFitFunctions() map.
-    - Edit FitUtils.h, add to the FitType enum and GetFitFunctions() map.
+     - Edit FitUtils.h, add to the FitType enum and GetFitFunctions() map.
+     - Edit FitUtils.h, add to the FitType enum and GetFitFunctions() map.
       
 ## License 
 Free to use and modify. GNU General Public License v3.
