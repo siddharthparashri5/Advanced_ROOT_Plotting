@@ -3,9 +3,15 @@
 
 #include <TGraph.h>
 #include <TGraphErrors.h>
+#include <TH1.h>
 #include <TH1D.h>
+#include <TH1F.h>
+#include <TH2.h>
 #include <TH2D.h>
+#include <TH2F.h>
+#include <TH3.h>
 #include <TH3D.h>
+#include <TH3F.h>
 #include <TCanvas.h>
 #include <TLegend.h>
 #include <TPaveText.h>
@@ -149,7 +155,8 @@ public:
     }
     
     // Create TH1D from column data
-    static TH1D* CreateTH1D(const ColumnData& data, const PlotConfig& config,
+    // NOTE: This returns TH1* to support TH1D, TH1F, etc.
+    static TH1* CreateTH1D(const ColumnData& data, const PlotConfig& config,
                            int nBins = 100, double xMin = 0, double xMax = 0) {
         if (config.xColumn < 0 || config.xColumn >= data.GetNumColumns()) {
             std::cerr << "Invalid column index for TH1D" << std::endl;
@@ -186,7 +193,8 @@ public:
     }
     
     // Create TH2D from column data
-    static TH2D* CreateTH2D(const ColumnData& data, const PlotConfig& config,
+    // NOTE: This returns TH2* to support TH2D, TH2F, etc.
+    static TH2* CreateTH2D(const ColumnData& data, const PlotConfig& config,
                            int nBinsX = 50, int nBinsY = 50,
                            double xMin = 0, double xMax = 0,
                            double yMin = 0, double yMax = 0) {
@@ -236,75 +244,76 @@ public:
     }
     
     // Create TH3D from column data, with optional weights
-	static TH3D* CreateTH3D(const ColumnData& data, const PlotConfig& config,
+    // NOTE: This returns TH3* to support TH3D, TH3F, etc.
+    static TH3* CreateTH3D(const ColumnData& data, const PlotConfig& config,
                         int nBinsX = 50, int nBinsY = 50, int nBinsZ = 50,
                         double xMin = 0, double xMax = 0,
                         double yMin = 0, double yMax = 0,
                         double zMin = 0, double zMax = 0) {
-	    // Check column indices
-    	if (config.xColumn < 0 || config.yColumn < 0 || config.zColumn < 0 ||
-    	    config.xColumn >= data.GetNumColumns() ||
-    	    config.yColumn >= data.GetNumColumns() ||
-    	    config.zColumn >= data.GetNumColumns() ||
-    	    (config.weightColumn >= data.GetNumColumns() && config.weightColumn != -1)) 
-    	{
-    	    std::cerr << "Invalid column indices for TH3D" << std::endl;
-    	    return nullptr;
-    	}
+        // Check column indices
+        if (config.xColumn < 0 || config.yColumn < 0 || config.zColumn < 0 ||
+            config.xColumn >= data.GetNumColumns() ||
+            config.yColumn >= data.GetNumColumns() ||
+            config.zColumn >= data.GetNumColumns() ||
+            (config.weightColumn >= data.GetNumColumns() && config.weightColumn != -1)) 
+        {
+            std::cerr << "Invalid column indices for TH3D" << std::endl;
+            return nullptr;
+        }
 
-    	const auto& xData = data.data[config.xColumn];
-	    const auto& yData = data.data[config.yColumn];
-    	const auto& zData = data.data[config.zColumn];
-    	const auto* wData = (config.weightColumn >= 0) ? &data.data[config.weightColumn] : nullptr;
-	
-    	int nPoints = std::min({xData.size(), yData.size(), zData.size()});
-    	if (wData) nPoints = std::min(nPoints, (int)wData->size());
-	
-    	if (nPoints == 0) return nullptr;
-	
-    	// Auto-calculate ranges if not provided
-    	if (xMin == 0 && xMax == 0) {
-    	    xMin = *std::min_element(xData.begin(), xData.end());
-    	    xMax = *std::max_element(xData.begin(), xData.end());
-    	    double range = xMax - xMin;
-    	    xMin -= 0.1 * range;
-    	    xMax += 0.1 * range;
-    	}
-	
-    	if (yMin == 0 && yMax == 0) {
-    	    yMin = *std::min_element(yData.begin(), yData.end());
-    	    yMax = *std::max_element(yData.begin(), yData.end());
-    	    double range = yMax - yMin;
-    	    yMin -= 0.1 * range;
-    	    yMax += 0.1 * range;
-    	}
-	
-    	if (zMin == 0 && zMax == 0) {
-    	    zMin = *std::min_element(zData.begin(), zData.end());
-    	    zMax = *std::max_element(zData.begin(), zData.end());
-    	    double range = zMax - zMin;
-    	    zMin -= 0.1 * range;
-    	    zMax += 0.1 * range;
-    	}
-	
-    	// Use column headers for axis titles
-    	std::string xTitle = data.headers[config.xColumn].empty() ? config.xTitle : data.headers[config.xColumn];
-    	std::string yTitle = data.headers[config.yColumn].empty() ? config.yTitle : data.headers[config.yColumn];
-    	std::string zTitle = data.headers[config.zColumn].empty() ? config.zTitle : data.headers[config.zColumn];
-	
-    	TH3D* hist = new TH3D(Form("h3_%p", (void*)&config),
-    	                      Form("%s;%s;%s;%s", config.title.c_str(), xTitle.c_str(), yTitle.c_str(), zTitle.c_str()),
-    	                      nBinsX, xMin, xMax, nBinsY, yMin, yMax, nBinsZ, zMin, zMax);
-	
-    	for (int i = 0; i < nPoints; ++i) {
-    	    if (wData) {
-    	        hist->Fill(xData[i], yData[i], zData[i], (*wData)[i]);
-    	    } else {
-    	        hist->Fill(xData[i], yData[i], zData[i]);
-    	    }
-    	}
+        const auto& xData = data.data[config.xColumn];
+        const auto& yData = data.data[config.yColumn];
+        const auto& zData = data.data[config.zColumn];
+        const auto* wData = (config.weightColumn >= 0) ? &data.data[config.weightColumn] : nullptr;
+    
+        int nPoints = std::min({xData.size(), yData.size(), zData.size()});
+        if (wData) nPoints = std::min(nPoints, (int)wData->size());
+    
+        if (nPoints == 0) return nullptr;
+    
+        // Auto-calculate ranges if not provided
+        if (xMin == 0 && xMax == 0) {
+            xMin = *std::min_element(xData.begin(), xData.end());
+            xMax = *std::max_element(xData.begin(), xData.end());
+            double range = xMax - xMin;
+            xMin -= 0.1 * range;
+            xMax += 0.1 * range;
+        }
+    
+        if (yMin == 0 && yMax == 0) {
+            yMin = *std::min_element(yData.begin(), yData.end());
+            yMax = *std::max_element(yData.begin(), yData.end());
+            double range = yMax - yMin;
+            yMin -= 0.1 * range;
+            yMax += 0.1 * range;
+        }
+    
+        if (zMin == 0 && zMax == 0) {
+            zMin = *std::min_element(zData.begin(), zData.end());
+            zMax = *std::max_element(zData.begin(), zData.end());
+            double range = zMax - zMin;
+            zMin -= 0.1 * range;
+            zMax += 0.1 * range;
+        }
+    
+        // Use column headers for axis titles
+        std::string xTitle = data.headers[config.xColumn].empty() ? config.xTitle : data.headers[config.xColumn];
+        std::string yTitle = data.headers[config.yColumn].empty() ? config.yTitle : data.headers[config.yColumn];
+        std::string zTitle = data.headers[config.zColumn].empty() ? config.zTitle : data.headers[config.zColumn];
+    
+        TH3D* hist = new TH3D(Form("h3_%p", (void*)&config),
+                              Form("%s;%s;%s;%s", config.title.c_str(), xTitle.c_str(), yTitle.c_str(), zTitle.c_str()),
+                              nBinsX, xMin, xMax, nBinsY, yMin, yMax, nBinsZ, zMin, zMax);
+    
+        for (int i = 0; i < nPoints; ++i) {
+            if (wData) {
+                hist->Fill(xData[i], yData[i], zData[i], (*wData)[i]);
+            } else {
+                hist->Fill(xData[i], yData[i], zData[i]);
+            }
+        }
 
-    	return hist;
+        return hist;
     }
 
 };

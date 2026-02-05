@@ -13,6 +13,8 @@
 #include <TROOT.h>
 #include <TCanvas.h>
 #include <TStyle.h>
+#include <TBrowser.h>
+#include <TFile.h>
 #include <RooRealVar.h>
 #include <RooDataHist.h>
 #include <RooGaussian.h>
@@ -66,6 +68,9 @@ private:
 
     TGMainFrame* fMainFrame;
     
+    // Store opened ROOT file
+    TFile* currentRootFile;
+    
     enum {
         kBrowseButton = 100,
         kLoadButton,
@@ -92,7 +97,7 @@ public:
 /////// Constructor ////////
 
 AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h) 
-    : TGMainFrame(p, w, h) {
+    : TGMainFrame(p, w, h), currentRootFile(nullptr) {
 
     fMainFrame = this;
 
@@ -234,8 +239,11 @@ AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h)
 // Destructor
 // ==========================
 AdvancedPlotGUI::~AdvancedPlotGUI() {
-    // Cleanup is handled by TGMainFrame
-    // Additional cleanup can be added here if needed
+    // Close ROOT file if open
+    if (currentRootFile && currentRootFile->IsOpen()) {
+        currentRootFile->Close();
+        delete currentRootFile;
+    }
 }
 
 /////// Browse for file  ////////
@@ -268,14 +276,62 @@ void AdvancedPlotGUI::DoLoad() {
         return;
     }
     
-    if (DataReader::ReadFile(filename, currentData)) {
-        addPlotButton->SetEnabled(true);
-        plotButton->SetEnabled(true);
-        ShowInfo(this, "Success",  Form("Loaded %d columns, %d rows",
-                                        currentData.GetNumColumns(),
-                                        currentData.GetNumRows()));
+    // Check if it's a ROOT file
+    std::string filenameStr(filename);
+    size_t dotPos = filenameStr.find_last_of('.');
+    std::string ext = (dotPos != std::string::npos) ? filenameStr.substr(dotPos + 1) : "";
+    
+    // Convert extension to lowercase
+    for (char& c : ext) c = std::tolower(c);
+    
+    if (ext == "root") {
+        // For ROOT files, open in TBrowser
+        std::cout << "Opening ROOT file in TBrowser: " << filename << std::endl;
+        
+        // Close previous ROOT file if open
+        if (currentRootFile && currentRootFile->IsOpen()) {
+            currentRootFile->Close();
+            delete currentRootFile;
+        }
+        
+        // Open the ROOT file
+        currentRootFile = TFile::Open(filename, "READ");
+        
+        if (!currentRootFile || currentRootFile->IsZombie()) {
+            ShowError(this, "Error", "Failed to open ROOT file.");
+            if (currentRootFile) {
+                delete currentRootFile;
+                currentRootFile = nullptr;
+            }
+            return;
+        }
+        
+        // Open TBrowser
+        new TBrowser("browser", currentRootFile);
+        
+        ShowInfo(this, "ROOT File Loaded", 
+                 "ROOT file opened in TBrowser.\n\n"
+                 "You can now:\n"
+                 "- Double-click on histograms to view them\n"
+                 "- Draw objects to canvases\n"
+                 "- Explore the file structure\n\n"
+                 "The file will remain open until you close this application.");
+        
+        // Don't enable plot buttons for ROOT files since we're using TBrowser
+        addPlotButton->SetEnabled(false);
+        plotButton->SetEnabled(false);
+        
     } else {
-        ShowError(this, "Error", "Failed to load file. Please check the file format.");
+        // For text/CSV files, use the normal loading process
+        if (DataReader::ReadFile(filename, currentData)) {
+            addPlotButton->SetEnabled(true);
+            plotButton->SetEnabled(true);
+            ShowInfo(this, "Success",  Form("Loaded %d columns, %d rows",
+                                            currentData.GetNumColumns(),
+                                            currentData.GetNumRows()));
+        } else {
+            ShowError(this, "Error", "Failed to load file. Please check the file format.");
+        }
     }
 }
 
@@ -430,7 +486,7 @@ void AdvancedPlotGUI::DoPlot() {
     TLegend* legend = nullptr;
     
     // Helper lambda for RooFit Gaussian
-    auto applyRooFitGaussian = [&](TH1D* h, int color) {
+    auto applyRooFitGaussian = [&](TH1* h, int color) {
         if (!h) return;
         h->Sumw2();
         for (int i = 1; i <= h->GetNbinsX(); ++i) {
@@ -498,7 +554,7 @@ void AdvancedPlotGUI::DoPlot() {
                     firstPlot = false;
                 }
             } else if (config.type == PlotConfig::kTH1D) {
-                TH1D* h = PlotCreator::CreateTH1D(currentData, config);
+                TH1* h = PlotCreator::CreateTH1D(currentData, config);
                 if (h) {
                     h->SetTitle(canvasTitle.c_str());
                     h->SetLineColor(config.color);
@@ -537,17 +593,17 @@ void AdvancedPlotGUI::DoPlot() {
                 TGraphErrors* g = PlotCreator::CreateTGraphErrors(currentData, config);
                 if (g) { g->Draw("APE"); ApplyFit(g, fitType, config.color, customFunc); }
             } else if (config.type == PlotConfig::kTH1D) {
-                TH1D* h = PlotCreator::CreateTH1D(currentData, config);
+                TH1* h = PlotCreator::CreateTH1D(currentData, config);
                 if (h) {
                     h->Draw();
                     if (fitType == FitUtils::kGaus) applyRooFitGaussian(h, config.color);
                     else ApplyFit(h, fitType, config.color, customFunc);
                 }
             } else if (config.type == PlotConfig::kTH2D) {
-                TH2D* h = PlotCreator::CreateTH2D(currentData, config);
+                TH2* h = PlotCreator::CreateTH2D(currentData, config);
                 if (h) { h->Draw("COLZ"); ApplyFit(h, fitType, config.color, customFunc); }
             } else if (config.type == PlotConfig::kTH3D) {
-                TH3D* h = PlotCreator::CreateTH3D(currentData, config);
+                TH3* h = PlotCreator::CreateTH3D(currentData, config);
                 if (h) { h->Draw(); }
             }
 
@@ -579,7 +635,7 @@ void AdvancedPlotGUI::DoPlot() {
                 ApplyFit(g, fitType, config.color, customFunc); }
                 legend->Draw();
             } else if (config.type == PlotConfig::kTH1D) {
-                TH1D* h = PlotCreator::CreateTH1D(currentData, config);
+                TH1* h = PlotCreator::CreateTH1D(currentData, config);
                 if (h) {
                     h->Draw();
                     legend->AddEntry(h, currentData.headers[config.xColumn].c_str(), "l");
@@ -587,10 +643,10 @@ void AdvancedPlotGUI::DoPlot() {
                     else ApplyFit(h, fitType, config.color, customFunc);
                 } legend->Draw();
             } else if (config.type == PlotConfig::kTH2D) {
-                TH2D* h = PlotCreator::CreateTH2D(currentData, config);
+                TH2* h = PlotCreator::CreateTH2D(currentData, config);
                 if (h) { h->Draw("COLZ"); ApplyFit(h, fitType, config.color, customFunc); }
             } else if (config.type == PlotConfig::kTH3D) {
-                TH3D* h = PlotCreator::CreateTH3D(currentData, config);
+                TH3* h = PlotCreator::CreateTH3D(currentData, config);
                 if (h) { h->Draw("ISO"); }
             }
             c->Update();
@@ -647,7 +703,7 @@ int main(int argc, char** argv) {
         cfg.bins = 100;
 
         TCanvas c("batch", "Batch Plot", 800, 600);
-        TH1D* h = PlotCreator::CreateTH1D(data, cfg);
+        TH1* h = PlotCreator::CreateTH1D(data, cfg);
         if (h) {
             h->Draw();
             c.SaveAs("batch_output.png");

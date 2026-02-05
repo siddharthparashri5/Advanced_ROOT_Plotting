@@ -6,7 +6,12 @@
 #include <TKey.h>
 #include <TH1.h>
 #include <TH2.h>
+#include <TH3.h>
 #include <TGraph.h>
+#include <TCanvas.h>
+#include <TList.h>
+#include <TClass.h>
+#include <TPad.h>
 #include <string>
 #include <vector>
 #include <fstream>
@@ -190,8 +195,166 @@ public:
         return !data.data.empty();
     }
     
-    // Read ROOT file - for now, just indicate it's supported
-    // User will need to select TTree and branches
+    // Helper function to extract data from TH1
+    static bool ExtractFromTH1(TH1* hist, ColumnData& data) {
+        if (!hist) return false;
+        
+        int nBins = hist->GetNbinsX();
+        
+        // Create two columns: bin center and bin content
+        data.headers.push_back(Form("%s_BinCenter", hist->GetName()));
+        data.headers.push_back(Form("%s_Content", hist->GetName()));
+        data.data.resize(2);
+        
+        for (int i = 1; i <= nBins; ++i) {
+            data.data[0].push_back(hist->GetBinCenter(i));
+            data.data[1].push_back(hist->GetBinContent(i));
+        }
+        
+        std::cout << "Extracted TH1: " << hist->GetName() << " (" << nBins << " bins)" << std::endl;
+        return true;
+    }
+    
+    // Helper function to extract data from TH2
+    static bool ExtractFromTH2(TH2* hist, ColumnData& data) {
+        if (!hist) return false;
+        
+        int nBinsX = hist->GetNbinsX();
+        int nBinsY = hist->GetNbinsY();
+        
+        // Create three columns: X bin center, Y bin center, and bin content
+        data.headers.push_back(Form("%s_X", hist->GetName()));
+        data.headers.push_back(Form("%s_Y", hist->GetName()));
+        data.headers.push_back(Form("%s_Content", hist->GetName()));
+        data.data.resize(3);
+        
+        for (int i = 1; i <= nBinsX; ++i) {
+            for (int j = 1; j <= nBinsY; ++j) {
+                data.data[0].push_back(hist->GetXaxis()->GetBinCenter(i));
+                data.data[1].push_back(hist->GetYaxis()->GetBinCenter(j));
+                data.data[2].push_back(hist->GetBinContent(i, j));
+            }
+        }
+        
+        std::cout << "Extracted TH2: " << hist->GetName() 
+                  << " (" << nBinsX << "x" << nBinsY << " bins)" << std::endl;
+        return true;
+    }
+    
+    // Helper function to extract data from TH3
+    static bool ExtractFromTH3(TH3* hist, ColumnData& data) {
+        if (!hist) return false;
+        
+        int nBinsX = hist->GetNbinsX();
+        int nBinsY = hist->GetNbinsY();
+        int nBinsZ = hist->GetNbinsZ();
+        
+        // Create four columns: X, Y, Z bin centers, and bin content
+        data.headers.push_back(Form("%s_X", hist->GetName()));
+        data.headers.push_back(Form("%s_Y", hist->GetName()));
+        data.headers.push_back(Form("%s_Z", hist->GetName()));
+        data.headers.push_back(Form("%s_Content", hist->GetName()));
+        data.data.resize(4);
+        
+        for (int i = 1; i <= nBinsX; ++i) {
+            for (int j = 1; j <= nBinsY; ++j) {
+                for (int k = 1; k <= nBinsZ; ++k) {
+                    data.data[0].push_back(hist->GetXaxis()->GetBinCenter(i));
+                    data.data[1].push_back(hist->GetYaxis()->GetBinCenter(j));
+                    data.data[2].push_back(hist->GetZaxis()->GetBinCenter(k));
+                    data.data[3].push_back(hist->GetBinContent(i, j, k));
+                }
+            }
+        }
+        
+        std::cout << "Extracted TH3: " << hist->GetName() 
+                  << " (" << nBinsX << "x" << nBinsY << "x" << nBinsZ << " bins)" << std::endl;
+        return true;
+    }
+    
+    // Recursive helper to search through lists and pads
+    static TObject* FindHistogramInList(TList* list, int depth = 0) {
+        if (!list || depth > 10) return nullptr; // Prevent infinite recursion
+        
+        TIter next(list);
+        TObject* obj;
+        
+        while ((obj = next())) {
+            if (!obj) continue;
+            
+            std::cout << std::string(depth * 2, ' ') << "  -> " << obj->GetName() 
+                      << " (class: " << obj->ClassName() << ")" << std::endl;
+            
+            // Check for histograms (most specific first)
+            if (obj->InheritsFrom(TH3::Class())) {
+                std::cout << "Found TH3 histogram!" << std::endl;
+                return obj;
+            } else if (obj->InheritsFrom(TH2::Class())) {
+                std::cout << "Found TH2 histogram!" << std::endl;
+                return obj;
+            } else if (obj->InheritsFrom(TH1::Class())) {
+                std::cout << "Found TH1 histogram!" << std::endl;
+                return obj;
+            }
+            // Check if this is a pad (sub-canvas)
+            else if (obj->InheritsFrom(TPad::Class())) {
+                TPad* pad = (TPad*)obj;
+                TList* padPrimitives = pad->GetListOfPrimitives();
+                if (padPrimitives) {
+                    std::cout << std::string(depth * 2, ' ') << "Searching in pad: " 
+                              << pad->GetName() << std::endl;
+                    TObject* found = FindHistogramInList(padPrimitives, depth + 1);
+                    if (found) return found;
+                }
+            }
+            // Check if this is another TList
+            else if (obj->InheritsFrom(TList::Class())) {
+                TList* sublist = (TList*)obj;
+                std::cout << std::string(depth * 2, ' ') << "Searching in TList (size: " 
+                          << sublist->GetSize() << ")" << std::endl;
+                TObject* found = FindHistogramInList(sublist, depth + 1);
+                if (found) return found;
+            }
+        }
+        
+        return nullptr;
+    }
+    
+    // Helper function to extract histograms from a canvas
+    static bool ExtractFromCanvas(TCanvas* canvas, ColumnData& data) {
+        if (!canvas) return false;
+        
+        std::cout << "Analyzing canvas: " << canvas->GetName() << std::endl;
+        
+        TList* primitives = canvas->GetListOfPrimitives();
+        if (!primitives) {
+            std::cerr << "Canvas " << canvas->GetName() << " has no primitives list" << std::endl;
+            return false;
+        }
+        
+        std::cout << "Canvas primitives list size: " << primitives->GetSize() << std::endl;
+        
+        // Recursively search for histograms
+        TObject* foundObj = FindHistogramInList(primitives);
+        
+        if (!foundObj) {
+            std::cerr << "No histograms found in canvas " << canvas->GetName() << std::endl;
+            return false;
+        }
+        
+        // Extract data based on histogram type
+        if (foundObj->InheritsFrom(TH3::Class())) {
+            return ExtractFromTH3((TH3*)foundObj, data);
+        } else if (foundObj->InheritsFrom(TH2::Class())) {
+            return ExtractFromTH2((TH2*)foundObj, data);
+        } else if (foundObj->InheritsFrom(TH1::Class())) {
+            return ExtractFromTH1((TH1*)foundObj, data);
+        }
+        
+        return false;
+    }
+    
+    // Read ROOT file - enhanced to handle histograms and canvases
     static bool ReadROOTFile(const std::string& filename, ColumnData& data) {
         TFile* file = TFile::Open(filename.c_str(), "READ");
         if (!file || file->IsZombie()) {
@@ -200,28 +363,68 @@ public:
         }
         
         data.filename = filename;
+        bool success = false;
         
-        // Get first TTree in file
-        TTree* tree = nullptr;
+        // Iterate through all keys in the file
         TIter next(file->GetListOfKeys());
         TKey* key;
+        
+        std::cout << "=== Scanning ROOT file for objects ===" << std::endl;
+        
         while ((key = (TKey*)next())) {
             TObject* obj = key->ReadObj();
-            if (obj->InheritsFrom("TTree")) {
-                tree = (TTree*)obj;
-                break;
+            if (!obj) continue;
+            
+            std::cout << "Found: " << obj->GetName() 
+                      << " (class: " << obj->ClassName() << ")" << std::endl;
+            
+            // Check for TH3 first (most specific)
+            if (obj->InheritsFrom(TH3::Class())) {
+                success = ExtractFromTH3((TH3*)obj, data);
+                if (success) break;
+            }
+            // Then TH2
+            else if (obj->InheritsFrom(TH2::Class())) {
+                success = ExtractFromTH2((TH2*)obj, data);
+                if (success) break;
+            }
+            // Then TH1
+            else if (obj->InheritsFrom(TH1::Class())) {
+                success = ExtractFromTH1((TH1*)obj, data);
+                if (success) break;
+            }
+            // Check for Canvas
+            else if (obj->InheritsFrom(TCanvas::Class())) {
+                success = ExtractFromCanvas((TCanvas*)obj, data);
+                if (success) break;
+            }
+            // Finally check for TTree
+            else if (obj->InheritsFrom(TTree::Class())) {
+                success = ReadROOTTree((TTree*)obj, data);
+                if (success) break;
             }
         }
         
-        if (!tree) {
-            std::cerr << "No TTree found in ROOT file" << std::endl;
-            file->Close();
-            return false;
+        if (!success) {
+            std::cerr << "No compatible objects (TH1/TH2/TH3/TCanvas/TTree) found in ROOT file" << std::endl;
         }
+        
+        file->Close();
+        return success;
+    }
+    
+    // Helper function to read TTree (extracted from original ReadROOTFile)
+    static bool ReadROOTTree(TTree* tree, ColumnData& data) {
+        if (!tree) return false;
         
         // Get branches
         TObjArray* branches = tree->GetListOfBranches();
         int nBranches = branches->GetEntries();
+        
+        if (nBranches == 0) {
+            std::cerr << "TTree has no branches" << std::endl;
+            return false;
+        }
         
         data.headers.resize(nBranches);
         data.data.resize(nBranches);
@@ -243,7 +446,8 @@ public:
             }
         }
         
-        file->Close();
+        std::cout << "Extracted TTree: " << tree->GetName() 
+                  << " (" << nBranches << " branches, " << nEntries << " entries)" << std::endl;
         return true;
     }
     
