@@ -133,7 +133,7 @@ cp src/ProjectDict_rdict.pcm ProjectDict_rdict.pcm
 ./AdvancedPlotGUI
 ```
 
-### Option 2: Step-by-Step Build
+### Option 2: Step-by-Step Build (Not required from v2.0)
 
 ```bash
 # 1. Clone repository
