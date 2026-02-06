@@ -69,9 +69,9 @@ AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h)
     browseButton->Associate(this);
     fileFrame->AddFrame(browseButton, new TGLayoutHints(kLHintsLeft, 5,5,2,2));
     
-    loadButton = new TGTextButton(fileFrame, "Load", kLoadButton);
-    loadButton->Associate(this);
-    fileFrame->AddFrame(loadButton, new TGLayoutHints(kLHintsLeft, 5,5,2,2));
+    //loadButton = new TGTextButton(fileFrame, "Load", kLoadButton);
+    //loadButton->Associate(this);
+    //fileFrame->AddFrame(loadButton, new TGLayoutHints(kLHintsLeft, 5,5,2,2));
     
     fileGroup->AddFrame(fileFrame, new TGLayoutHints(kLHintsExpandX, 5,5,5,5));
     AddFrame(fileGroup, new TGLayoutHints(kLHintsExpandX, 5,5,5,5));
@@ -1208,8 +1208,9 @@ Bool_t AdvancedPlotGUI::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2) {
                 case kCM_BUTTON:
                     if (parm1 == kBrowseButton) {
                         DoBrowse();
-                    } else if (parm1 == kLoadButton) {
                         DoLoad();
+                    } else if (parm1 == kLoadButton) {
+                        //DoLoad();
                     } else if (parm1 == kAddPlotButton) {
                         DoAddPlot();
                     } else if (parm1 == kRemovePlotButton) {
