@@ -1,6 +1,6 @@
 # Advanced ROOT Plotting - User Manual
 
-**Version:** 2.0  
+**Version:** 2.1  
 **Date:** February 5, 2026  
 **Author:** Siddharth Parashri
 
