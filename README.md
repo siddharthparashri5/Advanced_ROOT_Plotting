@@ -123,6 +123,9 @@ Advance_ROOT_Plotting/
 git clone https://github.com/siddharthparashri5/Advance_ROOT_Plotting.git
 cd Advance_ROOT_Plotting
 
+# Run Project (Should work otherwise Make Project with make)
+./AdvancedPlotGUI 
+
 # Make project
 make
 
