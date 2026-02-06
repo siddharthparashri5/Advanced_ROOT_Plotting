@@ -1198,6 +1198,8 @@ void AdvancedPlotGUI::DoPlot() {
     }
     }
     gSystem->ProcessEvents();
+    ShowInfo(this, "Plot Created", 
+                 "Check the Plot Info in the terminal.\n\n");
 }
 /////// Process messages ///////
 
