@@ -6,12 +6,16 @@
 #include <TH1.h>
 #include <TH1D.h>
 #include <TH1F.h>
+#include <TH1I.h>
 #include <TH2.h>
 #include <TH2D.h>
 #include <TH2F.h>
+#include <TH2I.h>
 #include <TH3.h>
 #include <TH3D.h>
 #include <TH3F.h>
+#include <TH3I.h>
+#include <THStack.h>
 #include <TCanvas.h>
 #include <TLegend.h>
 #include <TPaveText.h>
@@ -28,8 +32,15 @@ struct PlotConfig {
         kTGraph,
         kTGraphErrors,
         kTH1D,
+        kTH1F,
+        kTH1I,
         kTH2D,
-        kTH3D
+        kTH2F,
+        kTH2I,
+        kTH3D,
+        kTH3F,
+        kTH3I,
+        kTHStack
     };
     
     PlotType type;
@@ -47,8 +58,6 @@ struct PlotConfig {
     int bins;
     int color;
     int markerStyle;
-    
-    
     
     PlotConfig() : type(kTGraph), xColumn(-1), yColumn(-1), zColumn(-1), 
                    xErrColumn(-1), yErrColumn(-1), zErrColumn(-1), weightColumn(-1), bins(100), 
@@ -154,12 +163,11 @@ public:
         return graph;
     }
     
-    // Create TH1D from column data
-    // NOTE: This returns TH1* to support TH1D, TH1F, etc.
-    static TH1* CreateTH1D(const ColumnData& data, const PlotConfig& config,
-                           int nBins = 100, double xMin = 0, double xMax = 0) {
+    // Generic TH1 creator - supports TH1D, TH1F, TH1I
+    static TH1* CreateTH1(const ColumnData& data, const PlotConfig& config,
+                          int nBins = 100, double xMin = 0, double xMax = 0) {
         if (config.xColumn < 0 || config.xColumn >= data.GetNumColumns()) {
-            std::cerr << "Invalid column index for TH1D" << std::endl;
+            std::cerr << "Invalid column index for TH1" << std::endl;
             return nullptr;
         }
         
@@ -178,9 +186,27 @@ public:
         // Use column header for x-axis title
         std::string xTitle = data.headers[config.xColumn].empty() ? config.xTitle : data.headers[config.xColumn];
         
-        TH1D* hist = new TH1D(Form("h1_%p", (void*)&config), 
-                             Form("%s;%s;Entries", config.title.c_str(), xTitle.c_str()),
-                             nBins, xMin, xMax);
+        TH1* hist = nullptr;
+        
+        // Create histogram based on type
+        switch(config.type) {
+            case PlotConfig::kTH1F:
+                hist = new TH1F(Form("h1f_%p", (void*)&config), 
+                               Form("%s;%s;Entries", config.title.c_str(), xTitle.c_str()),
+                               nBins, xMin, xMax);
+                break;
+            case PlotConfig::kTH1I:
+                hist = new TH1I(Form("h1i_%p", (void*)&config), 
+                               Form("%s;%s;Entries", config.title.c_str(), xTitle.c_str()),
+                               nBins, xMin, xMax);
+                break;
+            case PlotConfig::kTH1D:
+            default:
+                hist = new TH1D(Form("h1d_%p", (void*)&config), 
+                               Form("%s;%s;Entries", config.title.c_str(), xTitle.c_str()),
+                               nBins, xMin, xMax);
+                break;
+        }
         
         for (double val : xData) {
             hist->Fill(val);
@@ -192,16 +218,21 @@ public:
         return hist;
     }
     
-    // Create TH2D from column data
-    // NOTE: This returns TH2* to support TH2D, TH2F, etc.
-    static TH2* CreateTH2D(const ColumnData& data, const PlotConfig& config,
-                           int nBinsX = 50, int nBinsY = 50,
-                           double xMin = 0, double xMax = 0,
-                           double yMin = 0, double yMax = 0) {
+    // Legacy method - calls CreateTH1
+    static TH1* CreateTH1D(const ColumnData& data, const PlotConfig& config,
+                           int nBins = 100, double xMin = 0, double xMax = 0) {
+        return CreateTH1(data, config, nBins, xMin, xMax);
+    }
+    
+    // Generic TH2 creator - supports TH2D, TH2F, TH2I
+    static TH2* CreateTH2(const ColumnData& data, const PlotConfig& config,
+                          int nBinsX = 50, int nBinsY = 50,
+                          double xMin = 0, double xMax = 0,
+                          double yMin = 0, double yMax = 0) {
         if (config.xColumn < 0 || config.yColumn < 0 ||
             config.xColumn >= data.GetNumColumns() ||
             config.yColumn >= data.GetNumColumns()) {
-            std::cerr << "Invalid column indices for TH2D" << std::endl;
+            std::cerr << "Invalid column indices for TH2" << std::endl;
             return nullptr;
         }
         
@@ -232,9 +263,27 @@ public:
         std::string xTitle = data.headers[config.xColumn].empty() ? config.xTitle : data.headers[config.xColumn];
         std::string yTitle = data.headers[config.yColumn].empty() ? config.yTitle : data.headers[config.yColumn];
         
-        TH2D* hist = new TH2D(Form("h2_%p", (void*)&config), 
-                             Form("%s;%s;%s", config.title.c_str(), xTitle.c_str(), yTitle.c_str()),
-                             nBinsX, xMin, xMax, nBinsY, yMin, yMax);
+        TH2* hist = nullptr;
+        
+        // Create histogram based on type
+        switch(config.type) {
+            case PlotConfig::kTH2F:
+                hist = new TH2F(Form("h2f_%p", (void*)&config), 
+                               Form("%s;%s;%s", config.title.c_str(), xTitle.c_str(), yTitle.c_str()),
+                               nBinsX, xMin, xMax, nBinsY, yMin, yMax);
+                break;
+            case PlotConfig::kTH2I:
+                hist = new TH2I(Form("h2i_%p", (void*)&config), 
+                               Form("%s;%s;%s", config.title.c_str(), xTitle.c_str(), yTitle.c_str()),
+                               nBinsX, xMin, xMax, nBinsY, yMin, yMax);
+                break;
+            case PlotConfig::kTH2D:
+            default:
+                hist = new TH2D(Form("h2d_%p", (void*)&config), 
+                               Form("%s;%s;%s", config.title.c_str(), xTitle.c_str(), yTitle.c_str()),
+                               nBinsX, xMin, xMax, nBinsY, yMin, yMax);
+                break;
+        }
         
         for (int i = 0; i < nPoints; ++i) {
             hist->Fill(xData[i], yData[i]);
@@ -243,13 +292,20 @@ public:
         return hist;
     }
     
-    // Create TH3D from column data, with optional weights
-    // NOTE: This returns TH3* to support TH3D, TH3F, etc.
-    static TH3* CreateTH3D(const ColumnData& data, const PlotConfig& config,
-                        int nBinsX = 50, int nBinsY = 50, int nBinsZ = 50,
-                        double xMin = 0, double xMax = 0,
-                        double yMin = 0, double yMax = 0,
-                        double zMin = 0, double zMax = 0) {
+    // Legacy method - calls CreateTH2
+    static TH2* CreateTH2D(const ColumnData& data, const PlotConfig& config,
+                           int nBinsX = 50, int nBinsY = 50,
+                           double xMin = 0, double xMax = 0,
+                           double yMin = 0, double yMax = 0) {
+        return CreateTH2(data, config, nBinsX, nBinsY, xMin, xMax, yMin, yMax);
+    }
+    
+    // Generic TH3 creator - supports TH3D, TH3F, TH3I
+    static TH3* CreateTH3(const ColumnData& data, const PlotConfig& config,
+                          int nBinsX = 50, int nBinsY = 50, int nBinsZ = 50,
+                          double xMin = 0, double xMax = 0,
+                          double yMin = 0, double yMax = 0,
+                          double zMin = 0, double zMax = 0) {
         // Check column indices
         if (config.xColumn < 0 || config.yColumn < 0 || config.zColumn < 0 ||
             config.xColumn >= data.GetNumColumns() ||
@@ -257,7 +313,7 @@ public:
             config.zColumn >= data.GetNumColumns() ||
             (config.weightColumn >= data.GetNumColumns() && config.weightColumn != -1)) 
         {
-            std::cerr << "Invalid column indices for TH3D" << std::endl;
+            std::cerr << "Invalid column indices for TH3" << std::endl;
             return nullptr;
         }
 
@@ -301,9 +357,27 @@ public:
         std::string yTitle = data.headers[config.yColumn].empty() ? config.yTitle : data.headers[config.yColumn];
         std::string zTitle = data.headers[config.zColumn].empty() ? config.zTitle : data.headers[config.zColumn];
     
-        TH3D* hist = new TH3D(Form("h3_%p", (void*)&config),
-                              Form("%s;%s;%s;%s", config.title.c_str(), xTitle.c_str(), yTitle.c_str(), zTitle.c_str()),
-                              nBinsX, xMin, xMax, nBinsY, yMin, yMax, nBinsZ, zMin, zMax);
+        TH3* hist = nullptr;
+        
+        // Create histogram based on type
+        switch(config.type) {
+            case PlotConfig::kTH3F:
+                hist = new TH3F(Form("h3f_%p", (void*)&config),
+                               Form("%s;%s;%s;%s", config.title.c_str(), xTitle.c_str(), yTitle.c_str(), zTitle.c_str()),
+                               nBinsX, xMin, xMax, nBinsY, yMin, yMax, nBinsZ, zMin, zMax);
+                break;
+            case PlotConfig::kTH3I:
+                hist = new TH3I(Form("h3i_%p", (void*)&config),
+                               Form("%s;%s;%s;%s", config.title.c_str(), xTitle.c_str(), yTitle.c_str(), zTitle.c_str()),
+                               nBinsX, xMin, xMax, nBinsY, yMin, yMax, nBinsZ, zMin, zMax);
+                break;
+            case PlotConfig::kTH3D:
+            default:
+                hist = new TH3D(Form("h3d_%p", (void*)&config),
+                               Form("%s;%s;%s;%s", config.title.c_str(), xTitle.c_str(), yTitle.c_str(), zTitle.c_str()),
+                               nBinsX, xMin, xMax, nBinsY, yMin, yMax, nBinsZ, zMin, zMax);
+                break;
+        }
     
         for (int i = 0; i < nPoints; ++i) {
             if (wData) {
@@ -315,7 +389,15 @@ public:
 
         return hist;
     }
-
+    
+    // Legacy method - calls CreateTH3
+    static TH3* CreateTH3D(const ColumnData& data, const PlotConfig& config,
+                           int nBinsX = 50, int nBinsY = 50, int nBinsZ = 50,
+                           double xMin = 0, double xMax = 0,
+                           double yMin = 0, double yMax = 0,
+                           double zMin = 0, double zMax = 0) {
+        return CreateTH3(data, config, nBinsX, nBinsY, nBinsZ, xMin, xMax, yMin, yMax, zMin, zMax);
+    }
 };
 
 #endif // PLOTTYPES_H

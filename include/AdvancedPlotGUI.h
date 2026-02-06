@@ -13,22 +13,53 @@
 #ifndef ADVANCEDPLOTGUI_H
 #define ADVANCEDPLOTGUI_H
 
-#include <TGFrame.h>
+#include <streambuf>
+
+#include <TGClient.h>
 #include <TGButton.h>
+#include <TGFileDialog.h>
 #include <TGTextEntry.h>
 #include <TGNumberEntry.h>
+#include <TGLayout.h>
 #include <TGListBox.h>
 #include <TGTextEdit.h>
 #include <TGComboBox.h>
 #include <TGLabel.h>
+#include <TGMsgBox.h>
+#include <TGTextView.h>
+#include <TGTextBuffer.h>
+#include <TGScrollBar.h>
+#include <TGFrame.h>
 #include <TGTab.h>
+#include <TPython.h>
+#include <TObjString.h>
+
+#include <TApplication.h>
+#include <TSystem.h>
+#include <TROOT.h>
+#include <TCanvas.h>
+#include <TStyle.h>
+#include <TBrowser.h>
 #include <TFile.h>
+#include <RooRealVar.h>
+#include <RooDataHist.h>
+#include <RooGaussian.h>
+#include <RooPlot.h>
+#include <RooFitResult.h>
+#include <TH1.h>
+#include <iostream>
 #include <vector>
 #include <string>
-#include <streambuf>
+#include <TRint.h>
+
+#include <fstream>
+#include <cstdlib>
+#include <sstream>
+
+#include "DataReader.h"
 
 // Forward declarations
-struct ColumnData;
+//struct ColumnData;
 struct PlotConfig;
 class TGTextEdit;
 class TextEditStreamBuf;
@@ -59,63 +90,114 @@ class TextEditStreamBuf;
  * app.Run();
  * @endcode
  */
-class AdvancedPlotGUI : public TGMainFrame {
 
+
+// Custom stream buffer that redirects to TGTextEdit
+class TextEditStreamBuf : public std::streambuf {
 private:
-    // ==================== File Selection ====================
-    TGTextEntry* fileEntry;              ///< Text entry for file path
-    TGTextButton* browseButton;          ///< Browse button for file selection
-    TGTextButton* loadButton;            ///< Load button to read file
+    TGTextEdit* textEdit;
+    std::string buffer;
     
-    // ==================== Plot Configuration ====================
-    TGTextButton* addPlotButton;         ///< Button to add plot configuration
-    TGListBox* plotListBox;              ///< List of configured plots
-    TGTextButton* removePlotButton;      ///< Remove selected plot config
-    TGTextButton* clearAllButton;        ///< Clear all plot configurations
+public:
+    TextEditStreamBuf(TGTextEdit* edit) : textEdit(edit) {}
+    // Force flush buffer to text edit
+    void forceFlush() {if (!buffer.empty() || textEdit) {sync();}}
     
-    // ==================== Canvas Options ====================
-    TGCheckButton* sameCanvasCheck;      ///< Overlay plots on same canvas
-    TGCheckButton* dividedCanvasCheck;   ///< Divide canvas into pads
-    TGNumberEntry* nRowsEntry;           ///< Number of rows for division
-    TGNumberEntry* nColsEntry;           ///< Number of columns for division
+protected:
+    virtual int overflow(int c) override {
+        if (c != EOF) {
+            if (c == '\n') {
+                // Flush line to text edit
+                if (textEdit) {
+                    TGText* txt = textEdit->GetText();
+                    if (!buffer.empty()) {
+                        txt->InsText(TGLongPosition(txt->RowCount(), 0), buffer.c_str());
+                        buffer.clear();}
+                    txt->InsText(TGLongPosition(txt->RowCount(), 0), "\n");
+                    textEdit->Layout(); textEdit->SetVsbPosition(txt->RowCount());
+                    textEdit->Update(); gSystem->ProcessEvents();
+                }
+            } else { buffer += static_cast<char>(c);}
+        }return c;
+    }
+    virtual int sync() override {
+        if (!buffer.empty() && textEdit) {
+            TGText* txt = textEdit->GetText();
+            txt->InsText(TGLongPosition(txt->RowCount(), 0), buffer.c_str());
+            txt->InsText(TGLongPosition(txt->RowCount(), 0), "\n");
+            buffer.clear();
+            textEdit->Layout();
+            textEdit->SetVsbPosition(txt->RowCount());
+            textEdit->Update();
+            gSystem->ProcessEvents();
+        }
+        return 0;
+    }
+};
+
+
+
+// ==========================
+// Main GUI Class
+// ==========================
+class AdvancedPlotGUI : public TGMainFrame {
+private:
+
+    void PrintCanvasInfo(TCanvas* canvas);
+
+    // File selection
+    TGTextEntry* fileEntry;
+    TGTextButton* browseButton;
+    TGTextButton* loadButton;
     
-    // ==================== Fit Options ====================
-    TGComboBox* fitFunctionCombo;        ///< Combo box for fit function selection
-    TGTextEntry* customFuncEntry;        ///< Custom fit function entry
-    TGTextEntry* canvasTitleEntry;       ///< Canvas title entry
+    // Plot configuration
+    TGTextButton* addPlotButton;
+    TGListBox* plotListBox;
+    TGTextButton* removePlotButton;
+    TGTextButton* clearAllButton;
     
-    // ==================== Action Buttons ====================
-    TGTextButton* plotButton;            ///< Create plots button
+    // Canvas options
+    TGCheckButton* sameCanvasCheck;
+    TGCheckButton* dividedCanvasCheck;
+    TGNumberEntry* nRowsEntry;
+    TGNumberEntry* nColsEntry;
     
-    // ==================== Script Panel Components ====================
-    TGTab* scriptTab;                    ///< Tab widget for script panel
-    TGTextEdit* scriptEditor;            ///< Multi-line script editor
-    TGTextEntry* commandEntry;           ///< Single-line command entry
-    TGTextEdit* outputView;              ///< Read-only output display
-    TGComboBox* scriptLangCombo;         ///< Language selection (C++/Python)
-    TGTextButton* runScriptButton;       ///< Run script button
-    TGTextButton* runCommandButton;      ///< Execute command button
-    TGTextButton* loadScriptButton;      ///< Load script from file
-    TGTextButton* saveScriptButton;      ///< Save script to file
-    TGTextButton* clearEditorButton;     ///< Clear script editor
-    TGTextButton* clearOutputButton;     ///< Clear output view
+    // Fit options
+    TGComboBox* fitFunctionCombo;
+    TGTextEntry* customFuncEntry;
+    TGTextEntry* canvasTitleEntry;
     
-    // ==================== Data Storage ====================
-    ColumnData currentData;              ///< Currently loaded data
-    std::vector<PlotConfig> plotConfigs; ///< List of plot configurations
+    // Action buttons
+    TGTextButton* plotButton;
     
-    TGMainFrame* fMainFrame;             ///< Pointer to main frame
+    // Script panel components
+    TGTab* scriptTab;
+    TGTextEdit* scriptEditor;        // Multi-line script editor
+    TGTextEntry* commandEntry;       // Single-line command entry
+    TGTextEdit* outputView;          // Output display
+    TGComboBox* scriptLangCombo;
+    TGTextButton* runScriptButton;
+    TGTextButton* runCommandButton;
+    TGTextButton* loadScriptButton;
+    TGTextButton* saveScriptButton;
+    TGTextButton* clearEditorButton;
+    TGTextButton* clearOutputButton;
     
-    // ==================== ROOT File Management ====================
-    TFile* currentRootFile;              ///< Currently open ROOT file
+    // Data storage
+    ColumnData currentData;
+    std::vector<PlotConfig> plotConfigs;
+
+    TGMainFrame* fMainFrame;
     
-    // ==================== Stream Redirectors ====================
-    TextEditStreamBuf* coutBuf;          ///< Custom cout stream buffer
-    TextEditStreamBuf* cerrBuf;          ///< Custom cerr stream buffer
-    std::streambuf* oldCoutBuf;          ///< Original cout buffer
-    std::streambuf* oldCerrBuf;          ///< Original cerr buffer
+    // Store opened ROOT file
+    TFile* currentRootFile;
     
-    // ==================== Widget IDs ====================
+    // Stream redirectors
+    TextEditStreamBuf* coutBuf;
+    TextEditStreamBuf* cerrBuf;
+    std::streambuf* oldCoutBuf;
+    std::streambuf* oldCerrBuf;
+    
     enum {
         kBrowseButton = 100,
         kLoadButton,
@@ -132,147 +214,25 @@ private:
     };
 
 public:
-    /**
-     * @brief Constructor for AdvancedPlotGUI
-     * @param p Pointer to parent window (usually gClient->GetRoot())
-     * @param w Width of main window in pixels
-     * @param h Height of main window in pixels
-     * 
-     * @details
-     * Initializes the main GUI window with specified dimensions.
-     * Sets up all GUI components including:
-     * - File loading interface
-     * - Plot configuration panel
-     * - Canvas options
-     * - Fit function selector
-     * - Script panel with tabs
-     * - Stream redirection for output capture
-     */
-    AdvancedPlotGUI(const TGWindow *p, UInt_t w, UInt_t h);
-    
-    /**
-     * @brief Destructor for AdvancedPlotGUI
-     * @details 
-     * Cleans up allocated memory:
-     * - Restores original stream buffers
-     * - Deletes custom stream redirectors
-     * - Closes open ROOT files
-     */
+    AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h);
     virtual ~AdvancedPlotGUI();
-    
-    // ==================== File Operations ====================
-    
-    /**
-     * @brief Open file browser dialog
-     * @details Opens a file selection dialog for choosing data files
-     */
+
     void DoBrowse();
-    
-    /**
-     * @brief Load data from selected file
-     * @details 
-     * Loads data based on file extension:
-     * - .root files: Opens in TBrowser
-     * - .txt, .dat, .csv: Loads as column data
-     */
     void DoLoad();
-    
-    // ==================== Plot Configuration ====================
-    
-    /**
-     * @brief Add a new plot configuration
-     * @details Opens column selector dialog to configure a new plot
-     */
     void DoAddPlot();
-    
-    /**
-     * @brief Remove selected plot configuration
-     * @details Removes the currently selected plot from the list
-     */
     void DoRemovePlot();
-    
-    /**
-     * @brief Clear all plot configurations
-     * @details Removes all plots from the configuration list
-     */
     void DoClearAll();
-    
-    /**
-     * @brief Create plots from configurations
-     * @details 
-     * Creates plots based on current configurations.
-     * Supports three modes:
-     * - Same canvas (overlay)
-     * - Divided canvas (pads)
-     * - Separate canvases
-     * 
-     * Applies selected fit functions if specified.
-     */
     void DoPlot();
     
-    // ==================== Script Operations ====================
-    
-    /**
-     * @brief Execute script from editor
-     * @details 
-     * Runs the complete script from the script editor tab.
-     * Splits into lines and executes each non-empty, non-comment line.
-     * Updates all canvases after execution.
-     */
+    // Script panel methods
     void DoRunScript();
-    
-    /**
-     * @brief Execute single command
-     * @details 
-     * Executes the command entered in the command line tab.
-     * Clears the command entry after execution.
-     * Updates all canvases.
-     */
     void DoRunCommand();
-    
-    /**
-     * @brief Load script from file
-     * @details 
-     * Opens file dialog to load a script file.
-     * Auto-detects language from file extension (.C, .cpp, .py)
-     */
     void DoLoadScript();
-    
-    /**
-     * @brief Save script to file
-     * @details Opens save dialog to save current script editor content
-     */
     void DoSaveScript();
-    
-    /**
-     * @brief Clear script editor
-     * @details Removes all text from the script editor
-     */
     void DoClearEditor();
-    
-    /**
-     * @brief Clear output view
-     * @details Clears all output text from the output tab
-     */
     void DoClearOutput();
     
-    // ==================== Message Handling ====================
-    
-    /**
-     * @brief Process GUI messages
-     * @param msg Message type
-     * @param parm1 Parameter 1 (usually widget ID)
-     * @param parm2 Parameter 2 (usually sub-message)
-     * @return kTRUE if message handled
-     * 
-     * @details 
-     * Handles all GUI events including:
-     * - Button clicks
-     * - Text entry (Return key)
-     * - Menu selections
-     */
     Bool_t ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2);
-
     ClassDef(AdvancedPlotGUI, 2) // Advanced ROOT plotting GUI with scripting
 };
 

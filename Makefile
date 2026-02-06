@@ -62,21 +62,20 @@ HEADERS = $(INC_DIR)/AdvancedPlotGUI.h \
           $(INC_DIR)/PlotTypes.h \
           $(INC_DIR)/FitUtils.h \
           $(INC_DIR)/ErrorHandling.h \
-          $(INC_DIR)/ColumnSelectorLinkDef.h
+          $(INC_DIR)/LinkDef.h
 
 # ============================================================================
 # Object Files
 # ============================================================================
-OBJECTS = $(OBJ_DIR)/AdvancedPlotGUI.o \
-          $(OBJ_DIR)/ColumnSelector.o
+OBJECTS = $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SOURCES))
 
 # ============================================================================
 # ROOT Dictionary
 # ============================================================================
-DICT_SRC = $(SRC_DIR)/ColumnSelectorDict.cpp
-DICT_OBJ = $(OBJ_DIR)/ColumnSelectorDict.o
-DICT_PCM = ColumnSelectorDict_rdict.pcm
-DICT_ROOTMAP = $(OBJ_DIR)/ColumnSelectorDict.rootmap
+DICT_SRC = $(SRC_DIR)/ProjectDict.cpp
+DICT_OBJ = $(OBJ_DIR)/ProjectDict.o
+DICT_PCM = ProjectDict_rdict.pcm
+DICT_ROOTMAP = $(OBJ_DIR)/ProjectDict.rootmap
 
 # ============================================================================
 # Default Target
@@ -99,16 +98,25 @@ directories:
 # ============================================================================
 # Compile Source Files
 # ============================================================================
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(HEADERS)
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
 	@echo "Compiling $<..."
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # ============================================================================
 # Generate ROOT Dictionary
 # ============================================================================
-$(DICT_SRC): $(INC_DIR)/ColumnSelector.h $(INC_DIR)/ColumnSelectorLinkDef.h
+$(DICT_SRC): \
+  $(INC_DIR)/AdvancedPlotGUI.h \
+  $(INC_DIR)/ColumnSelector.h \
+  $(INC_DIR)/LinkDef.h
 	@echo "Generating ROOT dictionary..."
-	@cd $(INC_DIR) && rootcling -f ../$(DICT_SRC) -rmf ../$(DICT_ROOTMAP) -rml libColumnSelector.so ColumnSelector.h ColumnSelectorLinkDef.h
+	@cd $(OBJ_DIR) && rootcling \
+	    -f ../$(DICT_SRC) \
+	    -rmf ProjectDict.rootmap \
+	    -rml libProject.so \
+	    ../$(INC_DIR)/AdvancedPlotGUI.h \
+	    ../$(INC_DIR)/ColumnSelector.h \
+	    ../$(INC_DIR)/LinkDef.h
 	@if [ -f $(DICT_PCM) ]; then echo "Note: $(DICT_PCM) generated in project root"; fi
 
 # ============================================================================

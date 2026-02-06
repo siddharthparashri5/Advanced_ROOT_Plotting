@@ -1,6 +1,6 @@
 // Do NOT change. Changes will be lost next time file is generated
 
-#define R__DICTIONARY_FILENAME srcdIColumnSelectorDict
+#define R__DICTIONARY_FILENAME dOdOdIsrcdIColumnSelectorDict
 #define R__NO_DEPRECATION
 
 /*******************************************************************/
@@ -35,7 +35,7 @@
 #include "TDataMember.h"
 
 // Header files passed as explicit arguments
-#include "../include/ColumnSelector.h"
+#include "ColumnSelector.h"
 
 // Header files passed via #pragma extra_include
 
@@ -134,13 +134,12 @@ namespace ROOT {
 namespace {
   void TriggerDictionaryInitialization_ColumnSelectorDict_Impl() {
     static const char* headers[] = {
-"include/ColumnSelector.h",
+"ColumnSelector.h",
 nullptr
     };
     static const char* includePaths[] = {
-"./include",
 "/opt/root/root-6.26.06-install/include/",
-"/home/siddharth/Advance_ROOT_Plotting/Advance_ROOT_Plotting/",
+"/home/siddharth/IFIC_Work/My_Codes/Advance_ROOT_Plotting/include/",
 nullptr
     };
     static const char* fwdDeclCode = R"DICTFWDDCLS(
@@ -149,7 +148,7 @@ nullptr
 #pragma clang diagnostic ignored "-Wignored-attributes"
 #pragma clang diagnostic ignored "-Wreturn-type-c-linkage"
 extern int __Cling_AutoLoading_Map;
-class __attribute__((annotate("$clingAutoload$include/ColumnSelector.h")))  ColumnSelectorDialog;
+class __attribute__((annotate("$clingAutoload$ColumnSelector.h")))  ColumnSelectorDialog;
 )DICTFWDDCLS";
     static const char* payloadCode = R"DICTPAYLOAD(
 #line 1 "ColumnSelectorDict dictionary payload"
@@ -157,7 +156,7 @@ class __attribute__((annotate("$clingAutoload$include/ColumnSelector.h")))  Colu
 
 #define _BACKWARD_BACKWARD_WARNING_H
 // Inline headers
-#include "include/ColumnSelector.h"
+#include "ColumnSelector.h"
 
 #undef  _BACKWARD_BACKWARD_WARNING_H
 )DICTPAYLOAD";

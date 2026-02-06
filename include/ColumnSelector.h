@@ -31,8 +31,14 @@ private:
     TGCheckButton* radioTGraph;
     TGCheckButton* radioTGraphErrors;
     TGCheckButton* radioTH1D;
+    TGCheckButton* radioTH1F;
+    TGCheckButton* radioTH1I;
     TGCheckButton* radioTH2D;
+    TGCheckButton* radioTH2F;
+    TGCheckButton* radioTH2I;
     TGCheckButton* radioTH3D;
+    TGCheckButton* radioTH3F;
+    TGCheckButton* radioTH3I;
 
     TGTextButton* okButton;
     TGTextButton* cancelButton;
@@ -61,4 +67,3 @@ public:
 };
 
 #endif // COLUMNSELECTOR_H
-
