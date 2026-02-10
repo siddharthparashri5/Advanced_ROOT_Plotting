@@ -1,6 +1,0 @@
-[ libProject.so ]
-# List of selected classes
-class AdvancedPlotGUI
-class ColumnSelectorDialog
-header ../include/AdvancedPlotGUI.h
-header ../include/ColumnSelector.h
