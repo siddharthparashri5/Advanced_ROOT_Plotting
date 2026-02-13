@@ -117,7 +117,7 @@ CSVPreviewDialog::CSVPreviewDialog(const TGWindow* p, const char* filename)
     fEncodingCombo->Select(0);
     fEncodingCombo->Associate(this);
     encodingFrame->AddFrame(fEncodingCombo,
-        new TGLayoutHints(kLHintsExpandX, 5, 5, 2, 5));
+        new TGLayoutHints(kLHintsExpandX, 5, 5, 5, 5));
     
     configFrame->AddFrame(encodingFrame,
         new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5, 5, 5, 5));

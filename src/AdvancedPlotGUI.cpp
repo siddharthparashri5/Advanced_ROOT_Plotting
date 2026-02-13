@@ -79,8 +79,11 @@ AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h)
     printf("║            Advanced ROOT Plotting Tool                     ║\n");
     printf("╠════════════════════════════════════════════════════════════╣\n");
     printf("║  TIP: For ROOT files, open with Browse button, then:       ║\n");
-    printf("║  • Drag histograms/graphs from TBrowser to THIS window     ║\n");
+    printf("║  • Broswe the files and press 'Add Plot' to add plots      ║\n");
+    printf("║  • Select the settings and then press 'Create Plots'       ║\n");
+    printf("║  • Drag histograms/graphs from TBrowser to GUI window      ║\n");
     printf("║  • They will automatically plot in a new canvas!           ║\n");
+    printf("║  • User can also use the Scripts / Commands directly       ║\n");
     printf("╚════════════════════════════════════════════════════════════╝\n");
     printf("\n");
 }
@@ -117,7 +120,7 @@ void AdvancedPlotGUI::BuildFileSection()
     
     // Add drag-and-drop instruction label
     TGLabel* dndLabel = new TGLabel(fileGroup, 
-        "→ Open ROOT files with Browse, then DRAG objects from TBrowser to this window ←");
+        "Open ROOT, TXT, OR CSV files with Browse");
     dndLabel->SetTextColor(0x0000FF);
     dndLabel->SetTextFont("-*-helvetica-bold-r-*-*-12-*-*-*-*-*-*-*");
     fileGroup->AddFrame(dndLabel, new TGLayoutHints(kLHintsCenterX, 5,5,2,5));

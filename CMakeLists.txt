@@ -50,6 +50,7 @@ set(LIB_SOURCES
     src/ColumnSelectorDialog.cpp
     src/CSVPreviewDialog.cpp
     src/RootDataInspector.cpp
+    src/ROOTFileBrowser.cpp
     src/FileHandler.cpp
     src/PlotManager.cpp
     src/ScriptEngine.cpp
@@ -64,6 +65,7 @@ set(DICT_HEADERS
     ColumnSelectorDialog.h
     CSVPreviewDialog.h
     RootDataInspector.h
+    ROOTFileBrowser.h
 )
 
 # ============================================================================

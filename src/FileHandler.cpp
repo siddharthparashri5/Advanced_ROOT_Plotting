@@ -1,6 +1,7 @@
 #include "FileHandler.h"
 #include "AdvancedPlotGUI.h"
 #include "CSVPreviewDialog.h"
+#include "ROOTFileBrowser.h"
 #include "RootDataInspector.h"
 #include "DataReader.h"
 
@@ -9,6 +10,15 @@
 #include <TGClient.h>
 #include <TSystem.h>
 #include <TBrowser.h>
+#include <TCanvas.h>
+#include <TH1.h>
+#include <TH2.h>
+#include <TH3.h>
+#include <TGraph.h>
+#include <TGraphErrors.h>
+#include <TTree.h>
+#include <TBranch.h>
+#include <TObjArray.h>
 #include <fstream>
 #include <sstream>
 
@@ -102,7 +112,7 @@ void FileHandler::Load(const std::string& filepath)
 }
 
 // ============================================================================
-// Load ROOT file with TBrowser
+// Load ROOT file with content browser
 // ============================================================================
 void FileHandler::LoadRootFile(const char* filepath)
 {
@@ -113,6 +123,28 @@ void FileHandler::LoadRootFile(const char* filepath)
         fCurrentRootFile = nullptr;
     }
 
+    // Open the browser dialog
+    ROOTFileBrowser* browser = new ROOTFileBrowser(gClient->GetRoot(), filepath);
+    
+    Int_t ret = browser->DoModal();
+    
+    if (ret == 0) {
+        // User cancelled or error
+        gSystem->ProcessEvents();
+        gSystem->Sleep(100);
+        delete browser;
+        return;
+    }
+    
+    Bool_t showBrowser = browser->ShowBrowser();
+    std::vector<ROOTObjectInfo> selectedObjects = browser->GetSelectedObjects();
+    
+    // Clean up dialog
+    gSystem->ProcessEvents();
+    gSystem->Sleep(100);
+    delete browser;
+    
+    // Open the file for our use
     fCurrentRootFile = TFile::Open(filepath, "READ");
     if (!fCurrentRootFile || fCurrentRootFile->IsZombie()) {
         new TGMsgBox(gClient->GetRoot(), nullptr,
@@ -121,19 +153,48 @@ void FileHandler::LoadRootFile(const char* filepath)
         fCurrentRootFile = nullptr;
         return;
     }
-
-    // Open in TBrowser for exploration
-    new TBrowser("browser", fCurrentRootFile);
-
-    new TGMsgBox(gClient->GetRoot(), fMainGUI,
-        "ROOT File Loaded",
-        "ROOT file opened in TBrowser.\n\n"
-        "You can:\n"
-        "• Drag histograms/graphs from TBrowser onto the main window to plot them\n"
-        "• Double-click objects in TBrowser to view them\n"
-        "• Explore the file structure\n\n"
-        "Tip: Drag objects from TBrowser window to the main GUI window!",
-        kMBIconAsterisk, kMBOk);
+    
+    // If user wants TBrowser, open it
+    if (showBrowser || ret == 2) {
+        new TBrowser("browser", fCurrentRootFile);
+    }
+    
+    // Handle selected objects
+    if (ret == 1 && !selectedObjects.empty()) {
+        std::cout << "\n=== Loading " << selectedObjects.size() << " objects ===" << std::endl;
+        
+        for (const auto& objInfo : selectedObjects) {
+            std::cout << "Loading: " << objInfo.name << " (" << objInfo.type << ")" << std::endl;
+            
+            // Get the object from file
+            TObject* obj = fCurrentRootFile->Get(objInfo.name.c_str());
+            if (!obj) {
+                std::cout << "  WARNING: Could not retrieve object!" << std::endl;
+                continue;
+            }
+            
+            // Handle different object types
+            if (objInfo.category == "Histogram") {
+                PlotHistogram(obj, objInfo.name.c_str());
+            } else if (objInfo.category == "Graph") {
+                PlotGraph(obj, objInfo.name.c_str());
+            } else if (objInfo.category == "Tree") {
+                ShowTreeInfo(obj, objInfo.name.c_str());
+            }
+        }
+        
+        std::cout << "=== Loading complete ===" << std::endl;
+    }
+    
+    // Show summary message
+    if (ret == 1) {
+        new TGMsgBox(gClient->GetRoot(), fMainGUI,
+            "ROOT File Loaded",
+            Form("Loaded %d objects from ROOT file.\n\n"
+                 "Objects have been plotted in separate canvases.",
+                 (int)selectedObjects.size()),
+            kMBIconAsterisk, kMBOk);
+    }
 }
 
 // ============================================================================
@@ -268,4 +329,103 @@ void FileHandler::LoadCSVWithSettings(const char* filepath, char delim,
                        "Check delimiter and format.",
             kMBIconExclamation, kMBOk);
     }
+}
+
+// ============================================================================
+// Helper: Plot histogram
+// ============================================================================
+void FileHandler::PlotHistogram(TObject* obj, const char* name)
+{
+    if (!obj) return;
+    
+    TH1* hist = dynamic_cast<TH1*>(obj);
+    if (!hist) {
+        std::cout << "  WARNING: Object is not a histogram!" << std::endl;
+        return;
+    }
+    
+    // Create new canvas
+    static int canvasCounter = 0;
+    TCanvas* c = new TCanvas(Form("c_hist_%d", canvasCounter++),
+                             Form("Histogram: %s", name),
+                             800, 600);
+    
+    hist->Draw();
+    c->Update();
+    
+    std::cout << "  ✓ Histogram plotted in canvas: " << c->GetName() << std::endl;
+}
+
+// ============================================================================
+// Helper: Plot graph
+// ============================================================================
+void FileHandler::PlotGraph(TObject* obj, const char* name)
+{
+    if (!obj) return;
+    
+    TGraph* graph = dynamic_cast<TGraph*>(obj);
+    if (!graph) {
+        std::cout << "  WARNING: Object is not a graph!" << std::endl;
+        return;
+    }
+    
+    // Create new canvas
+    static int canvasCounter = 0;
+    TCanvas* c = new TCanvas(Form("c_graph_%d", canvasCounter++),
+                             Form("Graph: %s", name),
+                             800, 600);
+    
+    graph->Draw("AP");
+    c->Update();
+    
+    std::cout << "  ✓ Graph plotted in canvas: " << c->GetName() << std::endl;
+}
+
+// ============================================================================
+// Helper: Show TTree info
+// ============================================================================
+void FileHandler::ShowTreeInfo(TObject* obj, const char* name)
+{
+    if (!obj) return;
+    
+    TTree* tree = dynamic_cast<TTree*>(obj);
+    if (!tree) {
+        std::cout << "  WARNING: Object is not a TTree!" << std::endl;
+        return;
+    }
+    
+    std::cout << "\n=== TTree Information ===" << std::endl;
+    std::cout << "Name: " << tree->GetName() << std::endl;
+    std::cout << "Title: " << tree->GetTitle() << std::endl;
+    std::cout << "Entries: " << tree->GetEntries() << std::endl;
+    std::cout << "Branches: " << tree->GetNbranches() << std::endl;
+    
+    // Show branch info
+    TObjArray* branches = tree->GetListOfBranches();
+    if (branches) {
+        std::cout << "\nBranches:" << std::endl;
+        for (int i = 0; i < branches->GetEntries() && i < 10; i++) {
+            TBranch* branch = (TBranch*)branches->At(i);
+            if (branch) {
+                std::cout << "  • " << branch->GetName();
+                if (branch->GetClassName()[0]) {
+                    std::cout << " [" << branch->GetClassName() << "]";
+                }
+                std::cout << std::endl;
+            }
+        }
+        if (branches->GetEntries() > 10) {
+            std::cout << "  ... and " << (branches->GetEntries() - 10) << " more branches" << std::endl;
+        }
+    }
+    std::cout << "=========================\n" << std::endl;
+    
+    // Show message box
+    new TGMsgBox(gClient->GetRoot(), fMainGUI,
+        "TTree Information",
+        Form("TTree: %s\n\nEntries: %lld\nBranches: %d\n\n"
+             "See console for branch details.\n"
+             "Note: TTree plotting from browser not yet implemented.",
+             tree->GetName(), tree->GetEntries(), tree->GetNbranches()),
+        kMBIconAsterisk, kMBOk);
 }

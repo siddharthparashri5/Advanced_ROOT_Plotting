@@ -19,6 +19,11 @@ private:
     AdvancedPlotGUI* fMainGUI;
     TFile*           fCurrentRootFile;
     ColumnData       fCurrentData;
+    
+    // Helper methods for plotting ROOT objects
+    void PlotHistogram(TObject* obj, const char* name);
+    void PlotGraph(TObject* obj, const char* name);
+    void ShowTreeInfo(TObject* obj, const char* name);
 
 public:
     FileHandler(AdvancedPlotGUI* mainGUI);
