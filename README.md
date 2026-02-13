@@ -2,7 +2,7 @@
 
 A modern, user-friendly graphical interface for creating publication-quality plots with ROOT, supporting both CSV data files and ROOT files with drag-and-drop functionality.
 
-![Version](https://img.shields.io/badge/version-1.0-blue)
+![Version](https://img.shields.io/badge/version-2.2-blue)
 ![ROOT](https://img.shields.io/badge/ROOT-6.26+-green)
 ![C++](https://img.shields.io/badge/C++-17-orange)
 
