@@ -24,6 +24,7 @@ CSVPreviewDialog::CSVPreviewDialog(const TGWindow* p, const char* filename)
       fSkipRows(0),
       fUseHeaderRow(kTRUE),
       fEncoding("UTF-8"),
+      fModalResult(-1),  // -1 = not yet determined
       fListView(nullptr)
 {
     SetWindowName("CSV/Text File Import Preview");
@@ -57,7 +58,7 @@ CSVPreviewDialog::CSVPreviewDialog(const TGWindow* p, const char* filename)
     delimFrame->AddFrame(new TGLabel(delimFrame, "Delimiter:"),
         new TGLayoutHints(kLHintsLeft, 5, 5, 5, 2));
     
-    fDelimiterCombo = new TGComboBox(delimFrame);
+    fDelimiterCombo = new TGComboBox(delimFrame, kDelimiterCombo);
     fDelimiterCombo->AddEntry("Comma (,)", 0);
     fDelimiterCombo->AddEntry("Semicolon (;)", 1);
     fDelimiterCombo->AddEntry("Tab (\\t)", 2);
@@ -65,14 +66,14 @@ CSVPreviewDialog::CSVPreviewDialog(const TGWindow* p, const char* filename)
     fDelimiterCombo->AddEntry("Custom", 4);
     fDelimiterCombo->Select(0);
     fDelimiterCombo->Associate(this);
-    fDelimiterCombo->Connect("Selected(Int_t)", "CSVPreviewDialog", this, "UpdatePreview()");
     delimFrame->AddFrame(fDelimiterCombo, 
         new TGLayoutHints(kLHintsExpandX, 5, 5, 2, 5));
     
-    fCustomDelimEntry = new TGTextEntry(delimFrame);
+    fCustomDelimEntry = new TGTextEntry(delimFrame, "", kCustomDelimEntry);
     fCustomDelimEntry->SetMaxLength(1);
     fCustomDelimEntry->SetText(",");
     fCustomDelimEntry->SetState(kFALSE); 
+    fCustomDelimEntry->Associate(this);
     delimFrame->AddFrame(fCustomDelimEntry,
         new TGLayoutHints(kLHintsExpandX, 5, 5, 2, 5));
     
@@ -95,7 +96,7 @@ CSVPreviewDialog::CSVPreviewDialog(const TGWindow* p, const char* filename)
     
     // Header row
     TGVerticalFrame* headerFrame = new TGVerticalFrame(configFrame);
-    fHeaderCheckBox = new TGCheckButton(headerFrame, "First row as header");
+    fHeaderCheckBox = new TGCheckButton(headerFrame, "First row as header", kHeaderCheckBox);
     fHeaderCheckBox->SetState(kButtonDown);
     fHeaderCheckBox->Associate(this);
     headerFrame->AddFrame(fHeaderCheckBox,
@@ -109,7 +110,7 @@ CSVPreviewDialog::CSVPreviewDialog(const TGWindow* p, const char* filename)
     encodingFrame->AddFrame(new TGLabel(encodingFrame, "Encoding:"),
         new TGLayoutHints(kLHintsLeft, 5, 5, 5, 2));
     
-    fEncodingCombo = new TGComboBox(encodingFrame);
+    fEncodingCombo = new TGComboBox(encodingFrame, kEncodingCombo);
     fEncodingCombo->AddEntry("UTF-8", 0);
     fEncodingCombo->AddEntry("ISO-8859-1", 1);
     fEncodingCombo->AddEntry("ASCII", 2);
@@ -128,46 +129,23 @@ CSVPreviewDialog::CSVPreviewDialog(const TGWindow* p, const char* filename)
     mainFrame->AddFrame(new TGHorizontal3DLine(mainFrame),
         new TGLayoutHints(kLHintsExpandX, 0, 0, 5, 5));
     
-    
     // ─── PREVIEW PANEL ────────────────────────────────
-    
     TGGroupFrame* previewFrame = new TGGroupFrame(mainFrame, "Data Preview", kVerticalFrame);
 
-    // TGTextEdit handles its own scrolling, no TGCanvas needed!
+    // Create TGTextEdit with proper initialization
     fPreviewText = new TGTextEdit(previewFrame, 600, 300);
     fPreviewText->SetReadOnly(kTRUE);
-
-    // Set the font (Courier is best for CSV alignment)
+    
+    // CRITICAL: Set font BEFORE setting text (use GetFont for ROOT 6.26)
     const TGFont* courierFont = gClient->GetFont("-*-courier-medium-r-*-*-12-*-*-*-*-*-*-*");
     if (courierFont) {
-        fPreviewText->SetFont(courierFont->GetFontStruct());
+        FontStruct_t fs = courierFont->GetFontStruct();
+        fPreviewText->SetFont(fs);
     }
 
-    // Add the text edit directly to the GroupFrame
-    previewFrame->AddFrame(fPreviewText, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5, 5, 5, 5));
-
-   
-/*
-
-    // ─── PREVIEW PANEL ────────────────────────────────
-    TGGroupFrame* previewFrame = new TGGroupFrame(mainFrame, "Data Preview", kVerticalFrame);
-    
-    // FIXED: Use TGCanvas with TGTextEdit for simple table display
-    // TGListView in ROOT 6.26 doesn't have AddColumn/DeleteColumns methods
-    TGCanvas* canvas = new TGCanvas(previewFrame, 600, 300);
-    fPreviewText = new TGTextEdit(canvas, 600, 300);
-    fPreviewText->SetReadOnly(kTRUE);
-    
-    // Make it look like a table - use monospaced font
-    // Get courier font from font pool
-    const TGFont* courierFont = gClient->GetFont("-*-courier-medium-r-*-*-12-*-*-*-*-*-*-*");
-    if (courierFont) {
-        fPreviewText->SetFont(courierFont->GetFontStruct());
-    }
-    
-    previewFrame->AddFrame(canvas,
+    previewFrame->AddFrame(fPreviewText, 
         new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5, 5, 5, 5));
-    */
+    
     // Statistics
     TGHorizontalFrame* statsFrame = new TGHorizontalFrame(previewFrame);
     
@@ -179,9 +157,11 @@ CSVPreviewDialog::CSVPreviewDialog(const TGWindow* p, const char* filename)
     statsFrame->AddFrame(fColCountLabel,
         new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
 
-    previewFrame->AddFrame(statsFrame, new TGLayoutHints(kLHintsExpandX, 5, 5, 5, 5));
+    previewFrame->AddFrame(statsFrame, 
+        new TGLayoutHints(kLHintsExpandX, 5, 5, 5, 5));
 
-    mainFrame->AddFrame(previewFrame, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5, 5, 5, 5));
+    mainFrame->AddFrame(previewFrame, 
+        new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5, 5, 5, 5));
     
     // ─── BUTTONS ──────────────────────────────────────
     TGHorizontalFrame* buttonFrame = new TGHorizontalFrame(mainFrame);
@@ -203,9 +183,8 @@ CSVPreviewDialog::CSVPreviewDialog(const TGWindow* p, const char* filename)
     Resize(GetDefaultSize());
     CenterOnParent();
     
-    // Load and parse file
+    // CRITICAL: Load file AFTER all widgets are mapped
     LoadFile();
-    ParseFile();
 }
 
 // ============================================================================
@@ -222,7 +201,6 @@ void CSVPreviewDialog::LoadFile()
 {
     fFileLines.clear();
     
-    // CRITICAL: Use .Data() to get the const char* from TString
     std::ifstream file(fFilename.Data());
     
     if (!file.is_open()) {
@@ -232,19 +210,16 @@ void CSVPreviewDialog::LoadFile()
     
     std::string line;
     int count = 0;
-    // Read up to 100 lines for the preview
     while (std::getline(file, line) && count < 100) {
-        // Remove trailing \r if it exists (Windows format)
         if (!line.empty() && line.back() == '\r') line.pop_back();
-        
         fFileLines.push_back(line);
         count++;
     }
     file.close();
     
-    printf("DEBUG: Successfully loaded %d lines for preview.\n", (int)fFileLines.size());
+    printf("Loaded %d lines for preview.\n", (int)fFileLines.size());
     
-    // Now that lines are loaded, call UpdatePreview to fill the widget
+    // Update preview immediately
     UpdatePreview();
 }
 
@@ -258,7 +233,6 @@ std::vector<std::string> CSVPreviewDialog::SplitLine(const std::string& line, ch
     std::string token;
     
     while (std::getline(ss, token, delimiter)) {
-        // Trim leading/trailing spaces
         token.erase(0, token.find_first_not_of(" \t\r\n"));
         token.erase(token.find_last_not_of(" \t\r\n") + 1);
         tokens.push_back(token);
@@ -272,12 +246,11 @@ std::vector<std::string> CSVPreviewDialog::SplitLine(const std::string& line, ch
 // ============================================================================
 void CSVPreviewDialog::ParseFile()
 {
-    // Update preview
     UpdatePreview();
 }
 
 // ============================================================================
-// Update preview - FIXED for ROOT 6.26 (using TGTextEdit instead of TGListView)
+// Update preview
 // ============================================================================
 void CSVPreviewDialog::UpdatePreview()
 {
@@ -324,20 +297,11 @@ void CSVPreviewDialog::UpdatePreview()
         
         allRows.push_back(columns);
         rowIdx++;
-        if (rowIdx >= 50) break; // Limit preview rows
+        if (rowIdx >= 50) break;
     }
     
     // Build formatted table text
     std::ostringstream tableText;
-
-    std::string finalTable = tableText.str();
-
-    // to prevent LoadBuffer(nullptr) or empty buffer crashes
-    if (finalTable.empty()) {
-        finalTable = "No data to preview with current settings.";
-    }
-    
-    // Calculate column widths (simple fixed width for now)
     const int colWidth = 20;
     
     // Add rows to text
@@ -375,26 +339,22 @@ void CSVPreviewDialog::UpdatePreview()
         }
     }
     
-    /*
-    // Set the text
-    fPreviewText->LoadBuffer(tableText.str().c_str());
+    std::string finalTable = tableText.str();
+    if (finalTable.empty()) {
+        finalTable = "No data to preview with current settings.";
+    }
+    
+    // CRITICAL: Use LoadBuffer instead of SetText with new TGText
+    fPreviewText->LoadBuffer(finalTable.c_str());
     
     // Update labels
-    fRowCountLabel->SetText(Form("Rows: %d", rowIdx));
-    fColCountLabel->SetText(Form("Columns: %d", maxCols));
-    
-    fPreviewText->Layout();
-    */
-    // Set the text
-    fPreviewText->SetText(new TGText(finalTable.c_str()));
-    
-    // Force a redraw of the GUI components
     fRowCountLabel->SetText(Form("Rows: %d", (int)allRows.size()));
     fColCountLabel->SetText(Form("Columns: %d", maxCols));
     
-    // Important for TGTextEdit updates
-    fPreviewText->Update(); 
+    // Force layout update
+    fPreviewText->Layout();
     Layout();
+    gClient->NeedRedraw(fPreviewText);
 }
 
 // ============================================================================
@@ -407,50 +367,51 @@ Bool_t CSVPreviewDialog::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
             switch(GET_SUBMSG(msg)) {
                 case kCM_BUTTON:
                     if (parm1 == kOkButton) {
+                        printf("OK button clicked\n");
+                        UpdatePreview();  // Update one last time
                         fModalResult = 1;
-                        UpdatePreview(); // Ensure final settings are captured
-                        //UnmapWindow();   
+                        UnmapWindow();
                         return kTRUE;
                     } else if (parm1 == kCancelButton) {
+                        printf("Cancel button clicked\n");
                         fModalResult = 0;
                         UnmapWindow();
                         return kTRUE;
                     }
-                    /*if (parm1 == kOkButton) {
-                        // Update settings and close
-                        fModalResult = 1;
-                        UpdatePreview();
-                        CloseWindow();
-                        return kTRUE;
-                    } else if (parm1 == kCancelButton) {
-                        fModalResult = 0;
-                        CloseWindow();
-                        return kTRUE;
-                    }*/
                     break;
                     
                 case kCM_COMBOBOX:
                     if (parm1 == kDelimiterCombo) {
-                        if (parm2 == 4) { // Custom selected
+                        if (fDelimiterCombo->GetSelected() == 4) {
                             fCustomDelimEntry->SetState(kTRUE);
                         } else {
                             fCustomDelimEntry->SetState(kFALSE);
                         }
                         UpdatePreview();
                         return kTRUE;
+                    } else if (parm1 == kEncodingCombo) {
+                        UpdatePreview();
+                        return kTRUE;
                     }
                     break;
                     
                 case kCM_CHECKBUTTON:
-                    UpdatePreview();
-                    return kTRUE;
+                    if (parm1 == kHeaderCheckBox) {
+                        UpdatePreview();
+                        return kTRUE;
+                    }
+                    break;
             }
             break;
             
         case kC_TEXTENTRY:
-            if (parm1 == kSkipRowsEntry || parm1 == kCustomDelimEntry) {
-                UpdatePreview();
-                return kTRUE;
+            switch(GET_SUBMSG(msg)) {
+                case kTE_TEXTCHANGED:
+                    if (parm1 == kSkipRowsEntry || parm1 == kCustomDelimEntry) {
+                        UpdatePreview();
+                        return kTRUE;
+                    }
+                    break;
             }
             break;
     }
@@ -459,14 +420,47 @@ Bool_t CSVPreviewDialog::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
 }
 
 // ============================================================================
-// Modal dialog - FIXED: Returns fModalResult
+// Modal dialog - Manual event loop
 // ============================================================================
 Int_t CSVPreviewDialog::DoModal()
 {
-    fModalResult = 0;
+    fModalResult = -1;  // -1 = still running
+    
+    // Map the dialog window
+    MapSubwindows();
+    Resize(GetDefaultSize());
     MapWindow();
-    gClient->WaitFor(this);
+    
+    // Wait for window system to finish mapping
+    gSystem->ProcessEvents();
+    gSystem->Sleep(50);
+    
+    if (!IsMapped()) {
+        printf("ERROR: CSV preview window failed to map!\n");
+        return 0;
+    }
+    
+    // Process events until window is explicitly unmapped
+    while (IsMapped()) {
+        gSystem->ProcessEvents();
+        gSystem->Sleep(10);
+    }
+    
+    // If we exited loop but fModalResult is still -1, user closed window
+    if (fModalResult == -1) {
+        fModalResult = 0;
+    }
+    
     return fModalResult;
+}
+
+// ============================================================================
+// Close window properly
+// ============================================================================
+void CSVPreviewDialog::CloseWindow()
+{
+    fModalResult = 0;
+    UnmapWindow();
 }
 
 // ============================================================================
@@ -474,6 +468,5 @@ Int_t CSVPreviewDialog::DoModal()
 // ============================================================================
 Bool_t CSVPreviewDialog::IsValidDelimiter(char c) const
 {
-    // Accept printable ASCII delimiters
     return std::isprint(c) && c != '"' && c != '\n' && c != '\r';
 }

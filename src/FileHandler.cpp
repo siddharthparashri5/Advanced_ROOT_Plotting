@@ -16,8 +16,8 @@
 // Constructor
 // ============================================================================
 FileHandler::FileHandler(AdvancedPlotGUI* mainGUI)
-    : fMainGUI(mainGUI)
-      //fCurrentRootFile(nullptr)
+    : fMainGUI(mainGUI),
+      fCurrentRootFile(nullptr)
 {
 }
 
@@ -129,7 +129,7 @@ void FileHandler::LoadRootFile(const char* filepath)
         "ROOT File Loaded",
         "ROOT file opened in TBrowser.\n\n"
         "You can:\n"
-        "• Drag histograms/graphs from TBrowser onto this window to plot them\n"
+        "• Drag histograms/graphs from TBrowser onto the main window to plot them\n"
         "• Double-click objects in TBrowser to view them\n"
         "• Explore the file structure\n\n"
         "Tip: Drag objects from TBrowser window to the main GUI window!",
@@ -142,17 +142,24 @@ void FileHandler::LoadRootFile(const char* filepath)
 void FileHandler::LoadCSVFile(const char* filepath)
 {
     CSVPreviewDialog* preview = new CSVPreviewDialog(gClient->GetRoot(), filepath);
+    
     Int_t ret = preview->DoModal();
     
     if (ret != 1) {
+        // User cancelled
+        gSystem->ProcessEvents();
+        gSystem->Sleep(100);
         delete preview;
-        return;  // User cancelled
+        return;
     }
     
     char    delimiter = preview->GetDelimiter();
     Int_t   skipRows  = preview->GetSkipRows();
     Bool_t  useHeader = preview->UseHeaderRow();
     
+    // Clean up dialog before proceeding
+    gSystem->ProcessEvents();
+    gSystem->Sleep(100);
     delete preview;
     
     LoadCSVWithSettings(filepath, delimiter, skipRows, useHeader);
@@ -164,17 +171,12 @@ void FileHandler::LoadCSVFile(const char* filepath)
 void FileHandler::LoadCSVWithSettings(const char* filepath, char delim, 
                                       Int_t skipRows, Bool_t useHeader)
 {
-    
-    std::cout << "Starting load for: " << filepath << std::endl;
-    if (!fMainGUI) {
-        std::cout << "CRITICAL: fMainGUI is NULL!" << std::endl;
-        return;
-    }
-    
-    fCurrentData = ColumnData();  // clear
+    // CRITICAL: Clear old data first
+    fCurrentData = ColumnData();
     
     std::ifstream file(filepath);
     if (!file.is_open()) {
+        printf("ERROR: Cannot open file!\n");
         new TGMsgBox(gClient->GetRoot(), fMainGUI,
             "Error", Form("Cannot open: %s", filepath),
             kMBIconStop, kMBOk);
@@ -185,7 +187,9 @@ void FileHandler::LoadCSVWithSettings(const char* filepath, char delim,
     int lineNum = 0;
 
     // Skip rows
-    while (lineNum < skipRows && std::getline(file, line)) lineNum++;
+    while (lineNum < skipRows && std::getline(file, line)) {
+        lineNum++;
+    }
 
     // Header row
     if (useHeader && std::getline(file, line)) {
@@ -199,12 +203,14 @@ void FileHandler::LoadCSVWithSettings(const char* filepath, char delim,
             if (!token.empty() && token.back() == '\r') token.pop_back();
             fCurrentData.headers.push_back(token);
         }
+        
         if (!fCurrentData.headers.empty()) {
-            fCurrentData.data.assign(fCurrentData.headers.size(), std::vector<double>());}
-        //fCurrentData.data.resize(fCurrentData.headers.size());
+            fCurrentData.data.resize(fCurrentData.headers.size());
+        }
     }
 
     // Data rows
+    int dataRowCount = 0;
     while (std::getline(file, line)) {
         if (line.empty()) continue;
         
@@ -213,7 +219,6 @@ void FileHandler::LoadCSVWithSettings(const char* filepath, char delim,
         std::vector<std::string> tokens;
         
         while (std::getline(ss, token, delim)) {
-            // Trim whitespace
             token.erase(0, token.find_first_not_of(" \t\r\n"));
             token.erase(token.find_last_not_of(" \t\r\n") + 1);
             if (!token.empty() && token.back() == '\r') token.pop_back();
@@ -222,10 +227,11 @@ void FileHandler::LoadCSVWithSettings(const char* filepath, char delim,
         
         // First data row — create default headers if not using header row
         if (fCurrentData.data.empty() && !tokens.empty()) {
-            fCurrentData.data.assign(tokens.size(), std::vector<double>());
+            fCurrentData.data.resize(tokens.size());
             if (fCurrentData.headers.empty()) {
-                for (size_t i = 0; i < tokens.size(); ++i)
+                for (size_t i = 0; i < tokens.size(); ++i) {
                     fCurrentData.headers.push_back(Form("Col%zu", i));
+                }
             }
         }
         
@@ -237,18 +243,24 @@ void FileHandler::LoadCSVWithSettings(const char* filepath, char delim,
                     double val = std::stod(tokens[i]);
                     fCurrentData.data[i].push_back(val);
                 }
-            } catch (...) { continue; }
+            } catch (...) { 
+                // Non-numeric value, skip
+            }
         }
+        dataRowCount++;
     }
     file.close();
 
-    if (fMainGUI && !fCurrentData.data.empty()) {
-        fMainGUI->EnablePlotControls(true);
+    // CRITICAL: Check data validity and enable controls
+    bool hasData = !fCurrentData.data.empty() && fCurrentData.GetNumRows() > 0;
+    
+    if (hasData) {
+        fMainGUI->EnablePlotControls(kTRUE);
+        
         new TGMsgBox(gClient->GetRoot(), fMainGUI,
-            "Success", Form("Loaded %d columns, %d rows from %s",
+            "Success", Form("CSV loaded successfully!\n\nColumns: %d\nRows: %d",
                 fCurrentData.GetNumColumns(),
-                fCurrentData.GetNumRows(),
-                gSystem->BaseName(filepath)),
+                fCurrentData.GetNumRows()),
             kMBIconAsterisk, kMBOk);
     } else {
         new TGMsgBox(gClient->GetRoot(), fMainGUI,

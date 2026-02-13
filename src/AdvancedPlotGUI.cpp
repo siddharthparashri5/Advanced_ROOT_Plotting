@@ -45,7 +45,7 @@ AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h)
       fPlotManager(nullptr),
       fScriptEngine(nullptr)
 {
-    // Enable DND for ROOT objects from TBrowser
+    // CRITICAL: Enable DND for ROOT objects
     SetDNDTarget(kTRUE);
     
     // Create manager objects
@@ -61,10 +61,28 @@ AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h)
     BuildScriptPanel();
     
     // Finalize GUI
-    SetWindowName("Advanced ROOT Plotting Tool");
+    SetWindowName("Advanced ROOT Plotting Tool - Drag ROOT objects here!");
     MapSubwindows();
     Resize(GetDefaultSize());
     MapWindow();
+    
+    // CRITICAL: Register DND types AFTER window is mapped (window ID must be valid)
+    Atom_t typeList[3];
+    typeList[0] = gVirtualX->InternAtom("application/root", kFALSE);
+    typeList[1] = gVirtualX->InternAtom("text/uri-list", kFALSE);
+    typeList[2] = 0;
+    gVirtualX->SetDNDAware(GetId(), typeList);
+    
+    // Print helpful message
+    printf("\n");
+    printf("╔════════════════════════════════════════════════════════════╗\n");
+    printf("║            Advanced ROOT Plotting Tool                     ║\n");
+    printf("╠════════════════════════════════════════════════════════════╣\n");
+    printf("║  TIP: For ROOT files, open with Browse button, then:       ║\n");
+    printf("║  • Drag histograms/graphs from TBrowser to THIS window     ║\n");
+    printf("║  • They will automatically plot in a new canvas!           ║\n");
+    printf("╚════════════════════════════════════════════════════════════╝\n");
+    printf("\n");
 }
 
 // ============================================================================
@@ -78,7 +96,7 @@ AdvancedPlotGUI::~AdvancedPlotGUI()
 }
 
 // ============================================================================
-// Build file section - UPDATED: No drag-and-drop text entry
+// Build file section
 // ============================================================================
 void AdvancedPlotGUI::BuildFileSection()
 {
@@ -97,11 +115,12 @@ void AdvancedPlotGUI::BuildFileSection()
 
     fileGroup->AddFrame(fileFrame, new TGLayoutHints(kLHintsExpandX, 5,5,5,5));
     
-    // Add instruction label
+    // Add drag-and-drop instruction label
     TGLabel* dndLabel = new TGLabel(fileGroup, 
-        "Tip: Open ROOT files with Browse, then drag histograms from TBrowser onto this window");
-    dndLabel->SetTextColor(0x0000FF);  // Blue text
-    fileGroup->AddFrame(dndLabel, new TGLayoutHints(kLHintsLeft, 5,5,2,5));
+        "→ Open ROOT files with Browse, then DRAG objects from TBrowser to this window ←");
+    dndLabel->SetTextColor(0x0000FF);
+    dndLabel->SetTextFont("-*-helvetica-bold-r-*-*-12-*-*-*-*-*-*-*");
+    fileGroup->AddFrame(dndLabel, new TGLayoutHints(kLHintsCenterX, 5,5,2,5));
     
     AddFrame(fileGroup, new TGLayoutHints(kLHintsExpandX, 5,5,5,5));
 }
@@ -139,7 +158,6 @@ void AdvancedPlotGUI::BuildPlotConfigSection()
 // ============================================================================
 void AdvancedPlotGUI::BuildCanvasOptionsSection()
 {
-    // Canvas title
     TGHorizontalFrame* titleFrame = new TGHorizontalFrame(this);
     TGLabel* titleLabel = new TGLabel(titleFrame, "Canvas Title:");
     titleFrame->AddFrame(titleLabel, new TGLayoutHints(kLHintsLeft | kLHintsCenterY, 5,5,2,2));
@@ -149,7 +167,6 @@ void AdvancedPlotGUI::BuildCanvasOptionsSection()
     titleFrame->AddFrame(fCanvasTitleEntry, new TGLayoutHints(kLHintsLeft | kLHintsExpandX, 5,5,2,2));
     AddFrame(titleFrame, new TGLayoutHints(kLHintsExpandX, 5,5,5,5));
 
-    // Canvas division + overlay
     TGHorizontalFrame* divFrame = new TGHorizontalFrame(this);
     fSameCanvasCheck = new TGCheckButton(divFrame, "Same canvas (Overlay)");
     divFrame->AddFrame(fSameCanvasCheck, new TGLayoutHints(kLHintsLeft | kLHintsCenterY, 5,5,2,2));
@@ -207,7 +224,6 @@ void AdvancedPlotGUI::BuildFitSection()
 
     AddFrame(fitFrame, new TGLayoutHints(kLHintsExpandX, 5,5,5,5));
 
-    // Plot button
     fPlotButton = new TGTextButton(this, "Create Plots", kPlotButton);
     fPlotButton->Associate(this);
     AddFrame(fPlotButton, new TGLayoutHints(kLHintsCenterX, 5,5,10,10));
@@ -252,7 +268,6 @@ void AdvancedPlotGUI::BuildScriptPanel()
 
     scriptGroup->AddFrame(scriptControlFrame, new TGLayoutHints(kLHintsExpandX, 5,5,5,2));
 
-    // Script editor
     fScriptEditor = new TGTextEdit(scriptGroup, 400, 150);
     fScriptEditor->LoadBuffer(
         "// Write ROOT/C++ or Python code here\n"
@@ -264,7 +279,6 @@ void AdvancedPlotGUI::BuildScriptPanel()
     );
     scriptGroup->AddFrame(fScriptEditor, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5,5,2,5));
 
-    // Output area
     TGGroupFrame* outputGroup = new TGGroupFrame(scriptGroup, "Output / Terminal");
     scriptGroup->AddFrame(outputGroup, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5,5,5,5));
 
@@ -290,14 +304,18 @@ void AdvancedPlotGUI::BuildScriptPanel()
 }
 
 // ============================================================================
-// ADDED: Handle drag-and-drop of ROOT objects from TBrowser
+// Handle drag-and-drop of ROOT objects from TBrowser
 // Based on https://root.cern.ch/doc/master/drag__and__drop_8C.html
 // ============================================================================
 Bool_t AdvancedPlotGUI::HandleDNDDrop(TDNDData* data)
 {
     if (!data || !data->fData) return kFALSE;
     
-    // Get the ROOT object from DND data
+    // Only handle ROOT objects, not file paths
+    Atom_t rootAtom = gVirtualX->InternAtom("application/root", kFALSE);
+    if (data->fDataType != rootAtom) return kFALSE;
+    
+    // Deserialize the ROOT object
     TBufferFile buf(TBuffer::kRead, data->fDataLength, (void*)data->fData, kFALSE);
     buf.SetReadMode();
     TObject* obj = (TObject*)buf.ReadObjectAny(TObject::Class());
@@ -307,10 +325,14 @@ Bool_t AdvancedPlotGUI::HandleDNDDrop(TDNDData* data)
     TString objName = obj->GetName();
     TString objClass = obj->ClassName();
     
-    printf("\n=== ROOT Object Dropped ===\n");
-    printf("Name:  %s\n", objName.Data());
-    printf("Class: %s\n", objClass.Data());
-    printf("===========================\n\n");
+    printf("\n");
+    printf("╔════════════════════════════════════════════════════════════╗\n");
+    printf("║  ROOT Object Dropped!                                      ║\n");
+    printf("╠════════════════════════════════════════════════════════════╣\n");
+    printf("║  Name:  %-50s ║\n", objName.Data());
+    printf("║  Class: %-50s ║\n", objClass.Data());
+    printf("╚════════════════════════════════════════════════════════════╝\n");
+    printf("\n");
     
     // Create a new canvas and draw the object
     static Int_t canvasCount = 0;
@@ -319,55 +341,62 @@ Bool_t AdvancedPlotGUI::HandleDNDDrop(TDNDData* data)
                              800, 600);
     
     // Draw based on object type
+    Bool_t success = kFALSE;
+    
     if (obj->InheritsFrom(TH1::Class())) {
         TH1* h = (TH1*)obj->Clone();
         h->Draw();
-        printf("Histogram drawn: %s\n", h->GetTitle());
+        printf("→ TH1 histogram drawn: %s\n", h->GetTitle());
+        success = kTRUE;
     }
     else if (obj->InheritsFrom(TH2::Class())) {
         TH2* h = (TH2*)obj->Clone();
         h->Draw("COLZ");
-        printf("2D Histogram drawn: %s\n", h->GetTitle());
+        printf("→ TH2 histogram drawn: %s\n", h->GetTitle());
+        success = kTRUE;
     }
     else if (obj->InheritsFrom(TH3::Class())) {
         TH3* h = (TH3*)obj->Clone();
         h->Draw("ISO");
-        printf("3D Histogram drawn\n");
+        printf("→ TH3 histogram drawn\n");
+        success = kTRUE;
     }
     else if (obj->InheritsFrom(TGraph::Class())) {
         TGraph* g = (TGraph*)obj->Clone();
         g->Draw("APL");
-        printf("Graph drawn: %s\n", g->GetTitle());
+        printf("→ TGraph drawn: %s\n", g->GetTitle());
+        success = kTRUE;
     }
     else if (obj->InheritsFrom(TTree::Class())) {
-        // For TTrees, just print info - user can interact via TBrowser
         TTree* tree = (TTree*)obj;
-        printf("TTree dropped: %s\n", tree->GetName());
+        printf("→ TTree dropped: %s\n", tree->GetName());
         printf("  Entries: %lld\n", tree->GetEntries());
         printf("  Branches: %d\n", tree->GetListOfBranches()->GetEntries());
-        printf("\nTip: Use TBrowser to explore tree contents,\n");
-        printf("     or drag individual branches to plot them.\n");
+        printf("\n  TIP: Use TBrowser to explore tree,\n");
+        printf("       or drag individual branches to plot them.\n");
         delete c;
         return kTRUE;
     }
     else {
-        printf("Unsupported object type for plotting: %s\n", objClass.Data());
-        printf("Supported types: TH1, TH2, TH3, TGraph\n");
+        printf("✗ Unsupported object type: %s\n", objClass.Data());
+        printf("  Supported: TH1, TH2, TH3, TGraph\n");
         delete c;
         return kFALSE;
     }
     
-    c->Modified();
-    c->Update();
-    gSystem->ProcessEvents();
-    
-    // Add message to output
-    if (fScriptOutput) {
-        fScriptOutput->AddLine(Form(">>> Dropped %s: %s", objClass.Data(), objName.Data()));
-        fScriptOutput->ShowBottom();
+    if (success) {
+        c->Modified();
+        c->Update();
+        gSystem->ProcessEvents();
+        
+        // Add message to script output
+        if (fScriptOutput) {
+            fScriptOutput->AddLine(Form(">>> Dropped %s: %s", objClass.Data(), objName.Data()));
+            fScriptOutput->ShowBottom();
+        }
     }
     
-    return kTRUE;
+    return success;
 }
 
 // ============================================================================
@@ -375,8 +404,18 @@ Bool_t AdvancedPlotGUI::HandleDNDDrop(TDNDData* data)
 // ============================================================================
 void AdvancedPlotGUI::EnablePlotControls(Bool_t enable)
 {
-    fAddPlotButton->SetEnabled(enable);
-    fPlotButton->SetEnabled(enable);
+    if (fAddPlotButton) {
+        fAddPlotButton->SetEnabled(enable);
+    }
+    
+    if (fPlotButton) {
+        fPlotButton->SetEnabled(enable);
+    }
+    
+    // Force GUI update
+    gClient->NeedRedraw(fAddPlotButton);
+    gClient->NeedRedraw(fPlotButton);
+    gSystem->ProcessEvents();
 }
 
 // ============================================================================
@@ -483,40 +522,3 @@ Bool_t AdvancedPlotGUI::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
     
     return TGMainFrame::ProcessMessage(msg, parm1, parm2);
 }
-
-// ============================================================================
-// Main
-// ============================================================================
-/*
-int main(int argc, char** argv)
-{
-    // Batch mode
-    if (argc >= 3 && std::string(argv[1]) == "--batch") {
-        ColumnData data;
-        if (!DataReader::ReadFile(argv[2], data)) {
-            std::cerr << "Failed to read file\n";
-            return 1;
-        }
-
-        PlotConfig cfg;
-        cfg.type = PlotConfig::kTH1D;
-        cfg.xColumn = 0;
-        cfg.bins = 100;
-
-        TCanvas c("batch", "Batch Plot", 800, 600);
-        TH1* h = PlotCreator::CreateTH1D(data, cfg);
-        if (h) {
-            h->Draw();
-            c.SaveAs("batch_output.png");
-            c.SaveAs("batch_output.pdf");
-        }
-        return 0;
-    }
-
-    // GUI + ROOT Prompt Mode
-    TRint app("AdvancedPlotApp", &argc, argv);
-    new AdvancedPlotGUI(gClient->GetRoot(), 400, 200);
-    app.Run();
-    return 0;
-}
-*/
