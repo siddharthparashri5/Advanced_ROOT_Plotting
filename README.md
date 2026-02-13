@@ -74,14 +74,32 @@ cd Advance_ROOT_Plotting_dev
 Advance_ROOT_Plotting_dev/
 ├── src/
 │   ├── AdvancedPlotGUI.cpp       # Main GUI implementation
-│   ├── AdvancedPlotGUI.h
-│   ├── CSVPreviewDialog.cpp      # CSV import dialog
-│   ├── CSVPreviewDialog.h
-│   ├── ColumnSelector.cpp        # Column selection dialog
-│   ├── ColumnSelector.h
-│   ├── FileHandler.cpp           # File I/O operations
+│   ├── CSVPreviewDialog.cpp      
+│   ├── ColumnSelectorDialog.cpp       
+│   ├── ColumnSelectorDict.cpp
+│   ├── PlotManager.cpp
+│   ├── FileHandler.cpp
+│   ├── PloTypes.cpp
+│   ├── ProjectDict.cpp
+│   ├── RootDataInspector.cpp
+│   ├── ROOTFileBrowser.cpp
+│   ├── ScriptEngine.cpp
+│   
+├── include/
+│   ├── AdvancedPlotGUI.h       # Main GUI implementation
+│   ├── CSVPreviewDialog.h      
+│   ├── ColumnSelectorDialog.h      
+│   ├── ColumnSelectorLinkDef.h
+│   ├── PlotManager.h
+│   ├── DataReader.h
 │   ├── FileHandler.h
-│   └── LinkDef.h                 # ROOT dictionary generation
+│   ├── PloTypes.h
+│   ├── Errorhandling.h
+│   ├── FitUtils.h
+│   ├── RootDataInspector.h
+│   ├── ROOTFileBrowser.h
+│   ├── ScriptEngine.h
+│ 
 ├── main.cpp                       # Application entry point
 ├── CMakeLists.txt                 # Build configuration
 └── sample_data.csv                # Example data file
