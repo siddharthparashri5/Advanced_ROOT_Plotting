@@ -8,7 +8,7 @@ A modern, user-friendly graphical interface for creating publication-quality plo
 
 ## Features
 
-### 📊 Data Input
+### Data Input
 - **CSV/Text File Import**: Interactive preview dialog with customizable settings
   - Multiple delimiter options (comma, semicolon, tab, space, custom)
   - Header row detection and configuration
@@ -22,7 +22,7 @@ A modern, user-friendly graphical interface for creating publication-quality plo
   - Drag-and-drop support from TBrowser
   - Interactive ROOT File Browser with object preview
 
-### 🎯 NEW: Advanced ROOT Analysis 
+### NEW: GUI based ROOT Analysis and Filtering 
 - **Entry Range Selection**: Select specific event ranges from TTrees
   - Choose start and end entry numbers
   - Apply to any TTree branch
@@ -33,7 +33,7 @@ A modern, user-friendly graphical interface for creating publication-quality plo
   - Support for mathematical functions
   - Entry$ variable for entry-based cuts
   
-- **Selection Chains**: Build cumulative filter pipelines
+- **Selection Chains with cuts**: Build cumulative filter pipelines
   - Sequential application of multiple cuts
   - Each step builds on previous selections
   - Visual chain representation in GUI
@@ -50,7 +50,7 @@ A modern, user-friendly graphical interface for creating publication-quality plo
   - Automatic histogram creation from filtered TTree data
   - Full control over draw options
 
-### 📈 Plotting Capabilities
+###Plotting Capabilities
 - **Multiple Plot Types**:
   - Scatter plots with error bars
   - Line plots
@@ -67,7 +67,7 @@ A modern, user-friendly graphical interface for creating publication-quality plo
   - Legend positioning
   - Grid options
 
-### 🎨 Advanced Features
+###Advanced Features
 - **Multi-canvas Support**: Create and manage multiple plot canvases
 - **Column Selector**: Interactive dialog for choosing data columns
 - **Live Preview**: See changes in real-time
@@ -95,11 +95,9 @@ A modern, user-friendly graphical interface for creating publication-quality plo
 
 ### ROOT Installation
 ```bash
-# Install ROOT from official repository or build from source
-# For Ubuntu/Debian:
-sudo apt-get install root-system
+# Install ROOT from the official repository or build from source
+# check or download from https://root.cern/install/
 
-# Or download from https://root.cern/install/
 ```
 
 ## Installation
@@ -556,7 +554,7 @@ Execute: Type `quickAnalysis()` in command box and press Enter
 - **TBrowser Integration**: Option to open traditional TBrowser
 - **Double-click Plot**: Instantly plot by double-clicking object
 
-### ROOT Entry Selector (NEW)
+### ROOT Analysis (NEW)
 - **Entry Range Selection**: Choose specific event ranges
 - **Cut Formulas**: Apply physics cuts with ROOT syntax
 - **Selection Chains**: Build multi-step filter pipelines
@@ -612,7 +610,7 @@ find_package(ROOT REQUIRED COMPONENTS
 )
 ```
 
-### Entry Selector Integration
+### ROOT Analysis Integration
 To integrate Entry Selector into main GUI:
 1. See `RootEntrySelector/docs/INTEGRATION_GUIDE.md`
 2. Add includes and create RootEntrySelector instance
@@ -727,12 +725,6 @@ gdb ./AdvancedPlotGUIApp
 3. Update UI to include new file type
 4. Add to file type filters
 
-**Integrating Entry Selector:**
-1. Follow `RootEntrySelector/docs/INTEGRATION_GUIDE.md`
-2. Add launcher button/menu in main GUI
-3. Pass file path to RootEntrySelector
-4. Handle returned selections
-
 ### Code Style
 - Follow ROOT coding conventions
 - Use `ClassDef`/`ClassImp` macros for ROOT classes
@@ -749,17 +741,6 @@ gdb ./AdvancedPlotGUIApp
 # Test ROOT file loading
 # Test drag & drop from TBrowser
 # Test script execution
-```
-
-**Entry Selector:**
-```bash
-cd RootEntrySelector
-./test_entry_selector
-# Test entry range selection
-# Test cut formulas
-# Test chain building
-# Test save/load chains
-# Test plotting with cuts
 ```
 
 **Script Engine:**
@@ -782,24 +763,20 @@ Contributions are welcome! Please:
 6. Submit a pull request
 
 ### Priority Areas
-- Entry Selector GUI integration into main application
+- ROOT Analysis GUI integration into main application
 - Script editor syntax highlighting
 - Additional fit functions
 - THStack and TMultiGraph support
 - Improved error handling
 - Unit tests
 
-## License
-
-[Specify your license here - MIT, GPL, etc.]
-
 ## Citation
 
-If you use this software in your research, please cite:
+If you use this software in your research, you can cite the software as:
 
 ```bibtex
 @software{advanced_root_plotting_gui,
-  author = {Your Name},
+  author = {Siddharth Parashari},
   title = {Advanced ROOT Plotting GUI},
   version = {2.3},
   year = {2024},
@@ -810,9 +787,8 @@ If you use this software in your research, please cite:
 ## Contact & Support
 
 - **Issues**: Open an issue on GitHub
-- **Email**: your.email@institution.edu
+- **Email**: siddharthparashri5@gmail.com
 - **ROOT Forum**: https://root-forum.cern.ch/
-- **Documentation**: See `RootEntrySelector/docs/` for detailed guides
 
 ## Acknowledgments
 
@@ -824,8 +800,8 @@ If you use this software in your research, please cite:
 ## Version History
 
 ### v2.3 (Current - February 2026)
-- **NEW**: Advanced ROOT Entry Selector with chained filtering
-  - Entry range selection for TTrees and histograms
+- **NEW**: Advanced ROOT Analysis with chained filtering
+  - Entry selection for TTrees and histograms
   - Complex cut formulas with ROOT syntax
   - Sequential filter chains
   - Save/load selection workflows
@@ -878,7 +854,7 @@ If you use this software in your research, please cite:
 - Canvas management
 
 ### Planned Features (v2.4)
-- Full Entry Selector integration into main GUI
+- Full ROOT Analysis integration into the main GUI
 - Script editor syntax highlighting
 - Auto-complete for ROOT commands
 - Plot templates and style manager
@@ -891,7 +867,7 @@ If you use this software in your research, please cite:
 
 **Last Updated**: February 18, 2026  
 **Version**: 2.3  
-**Maintained by**: [Your Name]
+**Maintained by**: Siddharth Parashari
 
 ---
 
@@ -911,7 +887,7 @@ If you use this software in your research, please cite:
 4. Plots automatically created
 
 **For Advanced TTree Filtering:**
-1. Launch Entry Selector: `cd RootEntrySelector && ./test_entry_selector`
+1. Launch Entry Selector: `Use ROOT Analysis` button to load ROOT file
 2. Select tree → Select branch
 3. Enter cut formula → "Add to Chain"
 4. Repeat for multiple cuts
