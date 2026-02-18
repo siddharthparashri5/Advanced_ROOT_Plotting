@@ -90,6 +90,8 @@ public:
     // Getters for managers to access GUI state
     const char* GetFilePath() const { return fFileEntry->GetText(); }
     void SetFilePath(const char* path) { fFileEntry->SetText(path); }
+
+    void OnCommandEnter();
     
     Int_t GetNRows() const { return (Int_t)fNRowsEntry->GetNumber(); }
     Int_t GetNCols() const { return (Int_t)fNColsEntry->GetNumber(); }

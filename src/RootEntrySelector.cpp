@@ -211,7 +211,7 @@ void RootEntrySelector::BuildGUI()
     // Action buttons
     TGHorizontalFrame* actionFrame = new TGHorizontalFrame(chainFrame);
     
-    fAddStepButton = new TGTextButton(actionFrame, "Add to Chain →", kAddStepButton);
+    fAddStepButton = new TGTextButton(actionFrame, "Add to Chain", kAddStepButton);
     fAddStepButton->Associate(this);
     fAddStepButton->SetToolTipText("Add current selection as a new step");
     actionFrame->AddFrame(fAddStepButton, new TGLayoutHints(kLHintsLeft | kLHintsExpandX, 5, 5, 5, 5));
@@ -406,7 +406,11 @@ void RootEntrySelector::UpdateObjectInfo()
 // ============================================================================
 void RootEntrySelector::AddSelectionStep()
 {
+    std::cout << "\n=== AddSelectionStep() START ===" << std::endl;
+    
     Int_t selected = fObjectCombo->GetSelected();
+    std::cout << "Selected object index: " << selected << std::endl;
+    
     if (selected < 0 || selected >= (Int_t)fObjectList.size()) {
         new TGMsgBox(gClient->GetRoot(), this,
             "No Object", "Please select an object first",
@@ -414,60 +418,143 @@ void RootEntrySelector::AddSelectionStep()
         return;
     }
     
-    SelectionStep step;
-    step.objectName = fObjectList[selected];
+    std::string objName = fObjectList[selected];
+    std::cout << "Object name: " << objName << std::endl;
     
-    // Safely get object type without storing pointer
-    TObject* obj = fFile->Get(step.objectName.c_str());
+    // Get fresh object from file
+    TObject* obj = fFile->Get(objName.c_str());
     if (!obj) {
-        new TGMsgBox(gClient->GetRoot(), this,
-            "Error", "Cannot access object from file",
+        std::cout << "ERROR: Cannot retrieve object!" << std::endl;
+        char errMsg[256];
+        snprintf(errMsg, sizeof(errMsg), "Cannot retrieve: %s", objName.c_str());
+        new TGMsgBox(gClient->GetRoot(), this, "Error", errMsg,
             kMBIconStop, kMBOk);
         return;
     }
     
-    step.objectType = std::string(obj->ClassName());
+    std::cout << "Object type: " << obj->ClassName() << std::endl;
     
-    // Get numeric values
+    // Build selection step
+    SelectionStep step;
+    step.objectName = objName;
+    step.objectType = std::string(obj->ClassName());
     step.entryStart = (Long64_t)fStartEntry->GetNumber();
     step.entryEnd = (Long64_t)fEndEntry->GetNumber();
     
-    // Safely get text entries with null checks
-    if (fCutEntry) {
-        const char* cutText = fCutEntry->GetText();
-        step.cutFormula = (cutText && strlen(cutText) > 0) ? std::string(cutText) : "";
-    }
+    // Get cut formula
+    const char* cutText = fCutEntry->GetText();
+    step.cutFormula = (cutText && strlen(cutText) > 0) ? std::string(cutText) : "";
+    std::cout << "Cut formula: " << (step.cutFormula.empty() ? "(none)" : step.cutFormula) << std::endl;
     
-    if (fDrawOptEntry) {
-        const char* drawText = fDrawOptEntry->GetText();
-        step.drawOptions = (drawText && strlen(drawText) > 0) ? std::string(drawText) : "";
-    }
+    // Get draw options
+    const char* drawText = fDrawOptEntry->GetText();
+    step.drawOptions = (drawText && strlen(drawText) > 0) ? std::string(drawText) : "";
+    std::cout << "Draw options: " << (step.drawOptions.empty() ? "(default)" : step.drawOptions) << std::endl;
     
-    // For TTree, include branch if selected
-    if (step.objectType.find("TTree") != std::string::npos) {
+    // CRITICAL: For TTree, get the SELECTED branch
+    if (obj->InheritsFrom(TTree::Class())) {
+        std::cout << "Object is TTree, getting branch..." << std::endl;
+        
+        TTree* tree = (TTree*)obj;
+        std::string branchName;
+        
+        // Method 1: Try to get from combo box text entry (user typed or selected)
         if (fBranchCombo && fBranchCombo->IsEnabled()) {
             TGTextEntry* te = fBranchCombo->GetTextEntry();
             if (te) {
-                const char* branchText = te->GetText();
-                if (branchText && strlen(branchText) > 0) {
-                    step.objectName += ":";
-                    step.objectName += std::string(branchText);
+                const char* text = te->GetText();
+                if (text && strlen(text) > 0) {
+                    branchName = std::string(text);
+                    std::cout << "→ Branch from text entry: " << branchName << std::endl;
                 }
             }
+            
+            // Method 2: If text entry empty, try getting selected entry ID
+            if (branchName.empty()) {
+                Int_t selectedBranch = fBranchCombo->GetSelected();
+                std::cout << "→ Selected branch index: " << selectedBranch << std::endl;
+                
+                if (selectedBranch >= 0) {
+                    // Get the entry text from the selected ID
+                    TGLBEntry* entry = fBranchCombo->GetListBox()->GetEntry(selectedBranch);
+                    if (entry) {
+                        const char* entryText = ((TGTextLBEntry*)entry)->GetText()->GetString();
+                        if (entryText && strlen(entryText) > 0) {
+                            branchName = std::string(entryText);
+                            std::cout << "→ Branch from selected entry: " << branchName << std::endl;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Method 3: If still empty, use first branch as fallback
+        if (branchName.empty()) {
+            std::cout << "→ No branch selected, using first branch as fallback" << std::endl;
+            TObjArray* branches = tree->GetListOfBranches();
+            if (branches && branches->GetEntries() > 0) {
+                TBranch* firstBranch = (TBranch*)branches->At(0);
+                if (firstBranch) {
+                    branchName = firstBranch->GetName();
+                    std::cout << "→ Using first branch: " << branchName << std::endl;
+                    
+                    // Warn user
+                    new TGMsgBox(gClient->GetRoot(), this,
+                        "Info", Form("No branch selected.\nUsing first branch: %s", branchName.c_str()),
+                        kMBIconAsterisk, kMBOk);
+                }
+            }
+        }
+        
+        // Verify branch exists in tree
+        if (!branchName.empty()) {
+            TBranch* branch = tree->GetBranch(branchName.c_str());
+            if (!branch) {
+                std::cout << "WARNING: Branch '" << branchName << "' not found in tree!" << std::endl;
+                std::cout << "Available branches:" << std::endl;
+                TObjArray* branches = tree->GetListOfBranches();
+                if (branches) {
+                    for (int i = 0; i < branches->GetEntries() && i < 10; i++) {
+                        TBranch* b = (TBranch*)branches->At(i);
+                        if (b) std::cout << "  - " << b->GetName() << std::endl;
+                    }
+                }
+                
+                char errMsg[512];
+                snprintf(errMsg, sizeof(errMsg), 
+                         "Branch '%s' not found in tree '%s'!\n\n"
+                         "Please select a valid branch from the dropdown.",
+                         branchName.c_str(), objName.c_str());
+                new TGMsgBox(gClient->GetRoot(), this, "Error", errMsg,
+                    kMBIconStop, kMBOk);
+                return;
+            }
+            
+            // Add branch to object name
+            step.objectName = objName + ":" + branchName;
+            std::cout << "→ Final objectName: " << step.objectName << std::endl;
+        } else {
+            std::cout << "ERROR: Could not determine branch name!" << std::endl;
+            new TGMsgBox(gClient->GetRoot(), this,
+                "Error", "Could not determine which branch to plot.\n"
+                        "Please select a branch from the dropdown.",
+                kMBIconStop, kMBOk);
+            return;
         }
     }
     
     // Add to chain
     fSelectionChain.push_back(step);
     
-    // Update list box - use safer string construction
-    Int_t id = (Int_t)fSelectionChain.size() - 1;
-    std::string listEntry = std::to_string(id + 1) + ". " + step.GetDescription();
-    fStepListBox->AddEntry(listEntry.c_str(), id);
+    // Update list box with safe string handling
+    std::string entry = std::to_string(fSelectionChain.size()) + ". " + 
+                       step.GetDescription();
+    fStepListBox->AddEntry(entry.c_str(), (Int_t)fSelectionChain.size() - 1);
     fStepListBox->Layout();
     
-    std::cout << "Added selection step " << (id + 1) << ": " 
-              << step.GetDescription() << std::endl;
+    std::cout << "\n✓ Added selection step " << fSelectionChain.size() << std::endl;
+    std::cout << "  Description: " << step.GetDescription() << std::endl;
+    std::cout << "=== AddSelectionStep() END ===\n" << std::endl;
 }
 
 // ============================================================================
@@ -507,7 +594,7 @@ void RootEntrySelector::ClearAllSteps()
 // ============================================================================
 void RootEntrySelector::PlotCurrentSelection()
 {
-    std::cout << "=== PlotCurrentSelection() START ===" << std::endl;
+    std::cout << "\n\n=== PlotCurrentSelection() START ===\n\n" << std::endl;
     
     // Safety check 1: Combo box
     if (!fObjectCombo) {
@@ -658,7 +745,7 @@ std::string RootEntrySelector::BuildCumulativeCut() const
 // ============================================================================
 TCanvas* RootEntrySelector::PlotHistogram(const SelectionStep& step)
 {
-    std::cout << "=== PlotHistogram() START ===" << std::endl;
+    std::cout << "\n\n=== PlotHistogram() START ===\n\n" << std::endl;
     std::cout << "Step objectName: " << step.objectName << std::endl;
     
     TH1* hist = (TH1*)fFile->Get(step.objectName.c_str());
@@ -729,7 +816,7 @@ TCanvas* RootEntrySelector::PlotHistogram(const SelectionStep& step)
 // ============================================================================
 TCanvas* RootEntrySelector::PlotTree(const SelectionStep& step)
 {
-    std::cout << "=== PlotTree() START ===" << std::endl;
+    std::cout << "\n\n=== PlotTree() START ===\n\n" << std::endl;
     std::cout << "Step objectName: " << step.objectName << std::endl;
     
     // Parse tree name and branch name
@@ -837,6 +924,214 @@ TCanvas* RootEntrySelector::PlotTree(const SelectionStep& step)
 // ============================================================================
 TCanvas* RootEntrySelector::PlotWithChain(const std::vector<SelectionStep>& chain)
 {
+    if (chain.empty()) {
+        std::cout << "ERROR: Chain is empty!" << std::endl;
+        return nullptr;
+    }
+    
+    static int canvasCount = 0;
+    canvasCount++;
+    
+    char canvasName[128];
+    snprintf(canvasName, sizeof(canvasName), "c_chain_%d", canvasCount);
+    
+    TCanvas* c = new TCanvas(canvasName, "Chained Selection", 1000, 700);
+    
+    std::cout << "\n╔════════════════════════════════════════════════════════════╗" << std::endl;
+    std::cout << "║          Plotting Selection Chain                         ║" << std::endl;
+    std::cout << "╠════════════════════════════════════════════════════════════╣" << std::endl;
+    std::cout << "║ Total steps in chain: " << chain.size() << std::endl;
+    
+    // Build cumulative cut from all steps
+    std::string cumulativeCut = BuildCumulativeCut();
+    std::cout << "║ Cumulative cut: " << (cumulativeCut.empty() ? "(none)" : cumulativeCut) << std::endl;
+    
+    // Get the LAST step for plotting (this determines what to draw)
+    const SelectionStep& finalStep = chain.back();
+    
+    std::cout << "║ Final plot object: " << finalStep.objectName << std::endl;
+    std::cout << "╚════════════════════════════════════════════════════════════╝" << std::endl;
+    
+    // Parse object name (might be "TreeName:BranchName")
+    std::string objName = finalStep.objectName;
+    std::string branchName;
+    
+    size_t colonPos = objName.find(':');
+    if (colonPos != std::string::npos) {
+        objName = finalStep.objectName.substr(0, colonPos);
+        branchName = finalStep.objectName.substr(colonPos + 1);
+    }
+    
+    std::cout << "Retrieving object: " << objName << std::endl;
+    if (!branchName.empty()) {
+        std::cout << "Branch to plot: " << branchName << std::endl;
+    }
+    
+    // Get object from file
+    TObject* obj = fFile->Get(objName.c_str());
+    if (!obj) {
+        std::cout << "ERROR: Cannot retrieve object: " << objName << std::endl;
+        char errMsg[256];
+        snprintf(errMsg, sizeof(errMsg), "Cannot retrieve: %s", objName.c_str());
+        new TGMsgBox(gClient->GetRoot(), this, "Error", errMsg,
+            kMBIconStop, kMBOk);
+        delete c;
+        return nullptr;
+    }
+    
+    std::cout << "Object type: " << obj->ClassName() << std::endl;
+    
+    // Handle TTree
+    if (obj->InheritsFrom(TTree::Class())) {
+        TTree* tree = (TTree*)obj;
+        std::cout << "Tree has " << tree->GetEntries() << " total entries" << std::endl;
+        
+        // CRITICAL FIX: If no branch specified, use first branch automatically
+        if (branchName.empty()) {
+            TObjArray* branches = tree->GetListOfBranches();
+            if (branches && branches->GetEntries() > 0) {
+                TBranch* firstBranch = (TBranch*)branches->At(0);
+                if (firstBranch) {
+                    branchName = firstBranch->GetName();
+                    std::cout << "→ No branch specified, using first branch: " << branchName << std::endl;
+                } else {
+                    std::cout << "ERROR: Cannot get first branch!" << std::endl;
+                    new TGMsgBox(gClient->GetRoot(), this,
+                        "Error", "Cannot determine which branch to plot.\n"
+                                "Please select a specific branch.",
+                        kMBIconStop, kMBOk);
+                    delete c;
+                    return nullptr;
+                }
+            } else {
+                std::cout << "ERROR: Tree has no branches!" << std::endl;
+                new TGMsgBox(gClient->GetRoot(), this,
+                    "Error", "Tree has no branches to plot!",
+                    kMBIconStop, kMBOk);
+                delete c;
+                return nullptr;
+            }
+        }
+        
+        // Now branchName is guaranteed to be valid
+        std::string drawCmd = branchName;
+        
+        // Add entry range to cut if specified in final step
+        std::string fullCut = cumulativeCut;
+        if (finalStep.entryEnd > 0) {
+            char rangeFormula[256];
+            snprintf(rangeFormula, sizeof(rangeFormula), 
+                     "(Entry$ >= %lld && Entry$ <= %lld)", 
+                     finalStep.entryStart, finalStep.entryEnd);
+            if (!fullCut.empty()) {
+                fullCut = "(" + fullCut + ") && " + std::string(rangeFormula);
+            } else {
+                fullCut = std::string(rangeFormula);
+            }
+        } else if (finalStep.entryStart > 0) {
+            char rangeFormula[256];
+            snprintf(rangeFormula, sizeof(rangeFormula), 
+                     "Entry$ >= %lld", finalStep.entryStart);
+            if (!fullCut.empty()) {
+                fullCut = "(" + fullCut + ") && " + std::string(rangeFormula);
+            } else {
+                fullCut = std::string(rangeFormula);
+            }
+        }
+        
+        std::cout << "Drawing with command: " << drawCmd << std::endl;
+        std::cout << "Full cut formula: " << (fullCut.empty() ? "(none)" : fullCut) << std::endl;
+        
+        // Determine draw options (remove COLZ for 1D histograms from TTree)
+        std::string drawOpt = finalStep.drawOptions;
+        // COLZ is for 2D histograms - TTree::Draw creates 1D by default
+        if (drawOpt == "COLZ" || drawOpt == "colz") {
+            drawOpt = "";  // Use default for 1D
+            std::cout << "→ Removed COLZ option (only for 2D histograms)" << std::endl;
+        }
+        if (drawOpt.empty()) drawOpt = "";
+        
+        std::cout << "Draw options: " << (drawOpt.empty() ? "(default)" : drawOpt) << std::endl;
+        
+        // Execute Draw command
+        Long64_t nDrawn = tree->Draw(drawCmd.c_str(), fullCut.c_str(), drawOpt.c_str());
+        
+        std::cout << "→ Drew " << nDrawn << " entries passing all cuts" << std::endl;
+        
+        if (nDrawn == 0) {
+            std::cout << "WARNING: No entries passed the selection cuts!" << std::endl;
+            new TGMsgBox(gClient->GetRoot(), this,
+                "Warning", "No entries passed the selection cuts!\n"
+                          "Check your cut formulas and entry ranges.",
+                kMBIconExclamation, kMBOk);
+        } else if (nDrawn < 0) {
+            std::cout << "ERROR: Draw command failed (returned -1)!" << std::endl;
+            std::cout << "This usually means:" << std::endl;
+            std::cout << "  - Invalid branch name" << std::endl;
+            std::cout << "  - Invalid cut formula syntax" << std::endl;
+            std::cout << "  - Branch doesn't exist in tree" << std::endl;
+            new TGMsgBox(gClient->GetRoot(), this,
+                "Error", Form("Draw command failed!\n\n"
+                             "Branch: %s\n"
+                             "Cut: %s\n\n"
+                             "Check console for details.",
+                             drawCmd.c_str(), fullCut.c_str()),
+                kMBIconStop, kMBOk);
+        }
+        
+    }
+    // Handle Histogram
+    else if (obj->InheritsFrom(TH1::Class())) {
+        TH1* hist = (TH1*)obj;
+        std::cout << "Histogram has " << hist->GetEntries() << " entries" << std::endl;
+        
+        // Clone to avoid modifying original
+        char cloneName[256];
+        snprintf(cloneName, sizeof(cloneName), "%s_chain_%d", hist->GetName(), canvasCount);
+        TH1* hClone = (TH1*)hist->Clone(cloneName);
+        
+        // Apply entry range as bin range if specified
+        if (finalStep.entryStart > 0 || finalStep.entryEnd > 0) {
+            Long64_t startBin = finalStep.entryStart > 0 ? finalStep.entryStart : 1;
+            Long64_t endBin = finalStep.entryEnd > 0 ? finalStep.entryEnd : hClone->GetNbinsX();
+            
+            std::cout << "Applying bin range: " << startBin << " to " << endBin << std::endl;
+            
+            // Zero out bins outside range
+            for (int i = 1; i < startBin && i <= hClone->GetNbinsX(); ++i) {
+                hClone->SetBinContent(i, 0);
+                hClone->SetBinError(i, 0);
+            }
+            for (int i = endBin + 1; i <= hClone->GetNbinsX(); ++i) {
+                hClone->SetBinContent(i, 0);
+                hClone->SetBinError(i, 0);
+            }
+        }
+        
+        std::string drawOpt = finalStep.drawOptions.empty() ? "" : finalStep.drawOptions;
+        hClone->Draw(drawOpt.c_str());
+        
+        std::cout << "→ Histogram plotted with " << hClone->Integral() << " integral" << std::endl;
+    }
+    else {
+        std::cout << "ERROR: Unsupported object type: " << obj->ClassName() << std::endl;
+        char errMsg[256];
+        snprintf(errMsg, sizeof(errMsg), "Unsupported object type: %s", obj->ClassName());
+        new TGMsgBox(gClient->GetRoot(), this, "Error", errMsg,
+            kMBIconExclamation, kMBOk);
+        delete c;
+        return nullptr;
+    }
+    
+    c->Update();
+    std::cout << "╚════════════════════════════════════════════════════════════╝\n" << std::endl;
+    
+    return c;
+}
+
+/*
+TCanvas* RootEntrySelector::PlotWithChain(const std::vector<SelectionStep>& chain)
+{
     if (chain.empty()) return nullptr;
     
     static int canvasCount = 0;
@@ -891,6 +1186,8 @@ TCanvas* RootEntrySelector::PlotWithChain(const std::vector<SelectionStep>& chai
     
     return c;
 }
+
+*/
 
 // ============================================================================
 // Save selection chain to file

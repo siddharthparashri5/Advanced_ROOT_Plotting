@@ -61,7 +61,7 @@ AdvancedPlotGUI::AdvancedPlotGUI(const TGWindow* p, UInt_t w, UInt_t h)
     BuildScriptPanel();
     
     // Finalize GUI
-    SetWindowName("Advance ROOT Plotting Tool");
+    SetWindowName("Advanced ROOT Plotting Tool");
     MapSubwindows();
     Resize(GetDefaultSize());
     MapWindow();
@@ -127,7 +127,7 @@ void AdvancedPlotGUI::BuildFileSection()
     
     // Add drag-and-drop instruction label
     TGLabel* dndLabel = new TGLabel(fileGroup, 
-        "Open ROOT, TXT, OR CSV files with Browse");
+        "Open ROOT, TXT, OR CSV files with Browse for plotting or Choose ROOT Analysis for basic analysis");
     dndLabel->SetTextColor(0x0000FF);
     dndLabel->SetTextFont("-*-helvetica-bold-r-*-*-12-*-*-*-*-*-*-*");
     fileGroup->AddFrame(dndLabel, new TGLayoutHints(kLHintsCenterX, 5,5,2,5));
@@ -295,7 +295,7 @@ void AdvancedPlotGUI::BuildScriptPanel()
     TGHorizontalFrame* cmdFrame = new TGHorizontalFrame(outputGroup);
     cmdFrame->AddFrame(new TGLabel(cmdFrame, "root [0]"), new TGLayoutHints(kLHintsLeft | kLHintsCenterY, 5,5,2,2));
     fCommandEntry = new TGTextEntry(cmdFrame);
-    fCommandEntry->Connect("ReturnPressed()", "AdvancedPlotGUI", this, "ProcessMessage(Long_t,Long_t,Long_t)");
+    fCommandEntry->Connect("ReturnPressed()", "AdvancedPlotGUI",this,"OnCommandEnter()");
     fCommandEntry->Resize(300, 20);
     cmdFrame->AddFrame(fCommandEntry, new TGLayoutHints(kLHintsExpandX, 5,5,2,2));
 
@@ -407,6 +407,13 @@ Bool_t AdvancedPlotGUI::HandleDNDDrop(TDNDData* data)
     }
     
     return success;
+}
+
+void AdvancedPlotGUI::OnCommandEnter()
+{
+    if (!fScriptEngine || !fScriptLangCombo) return;
+    Int_t language = fScriptLangCombo->GetSelected();
+    fScriptEngine->RunCommand(language);
 }
 
 // ============================================================================
@@ -528,13 +535,23 @@ Bool_t AdvancedPlotGUI::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
         case kC_TEXTENTRY:
             switch (GET_SUBMSG(msg)) {
                 case kTE_ENTER:
-                    if (fCommandEntry && parm1 == (Long_t)fCommandEntry->WidgetId()) {
-                        fScriptEngine->RunCommand(fScriptLangCombo->GetSelected());
-                    }
-                    break;
+                    OnCommandEnter();
+                    return kTRUE;
+                    //if (fCommandEntry && parm1 == (Long_t)fCommandEntry->WidgetId()) {
+                    //    fScriptEngine->RunCommand(fScriptLangCombo->GetSelected());
+                        
+                    //}
+                    //break;
             }
             break;
     }
     
     return TGMainFrame::ProcessMessage(msg, parm1, parm2);
 }
+
+/*void AdvancedPlotGUI::OnCommandEnter()
+{
+    if (!fScriptEngine || !fScriptLangCombo) return;
+    Int_t language = fScriptLangCombo->GetSelected();
+    fScriptEngine->RunCommand(language);
+}*/
