@@ -4,6 +4,7 @@
 #include "ROOTFileBrowser.h"
 #include "RootDataInspector.h"
 #include "DataReader.h"
+#include "RootEntrySelector.h"
 
 #include <TGFileDialog.h>
 #include <TGMsgBox.h>
@@ -68,6 +69,26 @@ std::string FileHandler::Browse()
     }
     
     return "";
+}
+
+// ============================================================================
+// Open Entry Selector
+// ============================================================================
+
+void FileHandler::OpenEntrySelector(const char* filepath)
+{
+    // Verify it's a ROOT file
+    TString fname(filepath);
+    if (!fname.EndsWith(".root")) {
+        new TGMsgBox(gClient->GetRoot(), fMainGUI,
+            "Not a ROOT file", 
+            "Entry selector works only with .root files",
+            kMBIconExclamation, kMBOk);
+        return;
+    }
+    
+    // Open the entry selector dialog
+    new RootEntrySelector(gClient->GetRoot(), filepath);
 }
 
 // ============================================================================

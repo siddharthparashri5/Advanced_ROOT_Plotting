@@ -55,6 +55,7 @@ set(LIB_SOURCES
     src/PlotManager.cpp
     src/ScriptEngine.cpp
     src/PlotTypes.cpp
+    src/RootEntrySelector.cpp
 )
 
 set(CMAKE_ROOT_INCLUDE_PATH ${CMAKE_SOURCE_DIR}/include)
@@ -66,6 +67,7 @@ set(DICT_HEADERS
     CSVPreviewDialog.h
     RootDataInspector.h
     ROOTFileBrowser.h
+    RootEntrySelector.h
 )
 
 # ============================================================================

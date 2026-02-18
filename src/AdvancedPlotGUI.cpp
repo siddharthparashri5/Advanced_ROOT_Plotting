@@ -116,6 +116,11 @@ void AdvancedPlotGUI::BuildFileSection()
     fBrowseButton->Associate(this);
     fileFrame->AddFrame(fBrowseButton, new TGLayoutHints(kLHintsLeft, 5,5,2,2));
 
+    fEntrySelectorButton = new TGTextButton(fileFrame,"Advanced Entry Selector...", kEntrySelector);
+    fEntrySelectorButton->Associate(this);fEntrySelectorButton->SetToolTipText(
+        "Open advanced entry/cut selector for ROOT files");
+    fileFrame->AddFrame(fEntrySelectorButton,new TGLayoutHints(kLHintsLeft, 5, 5, 2, 2));
+
     fileGroup->AddFrame(fileFrame, new TGLayoutHints(kLHintsExpandX, 5,5,5,5));
     
     // Add drag-and-drop instruction label
@@ -507,6 +512,12 @@ Bool_t AdvancedPlotGUI::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
                     }
                     else if (parm1 == kClearOutputButton) {
                         fScriptEngine->ClearOutput();
+                    }
+                    else if (parm1 == kEntrySelector) {  // <-- ADD THIS
+                        std::string path = fFileHandler->Browse();
+                        if (!path.empty()) {
+                            fFileHandler->OpenEntrySelector(path.c_str());
+                        }
                     }
                     break;
             }

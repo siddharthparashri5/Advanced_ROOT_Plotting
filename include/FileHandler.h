@@ -37,6 +37,8 @@ public:
     void LoadCSVWithSettings(const char* filepath, char delim, 
                              Int_t skipRows, Bool_t useHeader);
 
+    void OpenEntrySelector(const char* filepath);
+
     const ColumnData& GetCurrentData()     const { return fCurrentData;    }
     TFile*            GetCurrentRootFile() const { return fCurrentRootFile; }
     void              SetCurrentData(const ColumnData& data) { fCurrentData = data; }
