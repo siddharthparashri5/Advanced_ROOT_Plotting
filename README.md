@@ -22,7 +22,7 @@ A modern, user-friendly graphical interface for creating publication-quality plo
   - Drag-and-drop support from TBrowser
   - Interactive ROOT File Browser with object preview
 
-### 🎯 NEW: Advanced TTree Entry Selector
+### 🎯 NEW: Advanced ROOT Analysis 
 - **Entry Range Selection**: Select specific event ranges from TTrees
   - Choose start and end entry numbers
   - Apply to any TTree branch
@@ -158,15 +158,7 @@ make -j$(nproc)
 
 This will create the executable: `AdvancedPlotGUIApp`
 
-### 4. Build ROOT Entry Selector (Standalone)
-```bash
-cd RootEntrySelector
-make clean
-make
-./test_entry_selector
-```
-
-### 5. Troubleshooting Build Issues
+### 4. Troubleshooting Build Issues
 
 **Missing ROOT**: If CMake can't find ROOT, source the ROOT environment:
 ```bash
@@ -196,9 +188,9 @@ root -l
 2. **Select your data file** in the file browser
 3. **Configure import settings** in the preview dialog:
    - Choose delimiter (comma, semicolon, tab, etc.)
-   - Set whether first row contains headers
+   - Set whether the first row contains headers
    - Skip metadata rows if needed
-   - Preview shows formatted table
+   - Preview shows a formatted table
 4. **Click "Load"** to import the data
 5. **Success dialog** confirms the data is loaded
 
@@ -211,23 +203,15 @@ root -l
    - All graphs (TGraph*)
    - All TTrees with branch information
 4. **Select objects** to load
-5. **Choose**: Load objects OR just open TBrowser
+5. **Choose**: Plot Objects in a single, overlay, or divided canvas OR just open TBrowser
+6. **Choose**: Load objects OR just open TBrowser
 
-### Using the ROOT Entry Selector (NEW)
+### Using the ROOT Analysis (NEW)
 
-The Entry Selector provides advanced TTree event selection with chained filtering.
+The ROOT Analysis provides advanced TTree event selection with chained filtering.
 
-#### Opening the Entry Selector
-```bash
-# Standalone:
-cd RootEntrySelector
-./test_entry_selector  # Uses test data
 
-# Or with your file:
-root -l
-.x run_entry_selector.C("your_file.root")
-```
-
+#### Opening the ROOT Analysis
 #### Basic Workflow
 1. **Load ROOT File**: File automatically opens on startup
 2. **Select Object**: Choose TTree or histogram from dropdown
