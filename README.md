@@ -50,7 +50,7 @@ A modern, user-friendly graphical interface for creating publication-quality plo
   - Automatic histogram creation from filtered TTree data
   - Full control over draw options
 
-###Plotting Capabilities
+### Plotting Capabilities
 - **Multiple Plot Types**:
   - Scatter plots with error bars
   - Line plots
@@ -67,7 +67,7 @@ A modern, user-friendly graphical interface for creating publication-quality plo
   - Legend positioning
   - Grid options
 
-###Advanced Features
+### Advanced Features
 - **Multi-canvas Support**: Create and manage multiple plot canvases
 - **Column Selector**: Interactive dialog for choosing data columns
 - **Live Preview**: See changes in real-time
