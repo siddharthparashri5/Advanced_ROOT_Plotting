@@ -118,6 +118,7 @@ Advance_ROOT_Plotting_dev/
 │   ├── CSVPreviewDialog.cpp      # CSV preview and import
 │   ├── ColumnSelectorDialog.cpp  # Column selection dialog     
 │   ├── ColumnSelectorDict.cpp    # ROOT dictionary
+│   ├── RootEntrySelector.cpp     # Entry selector GUI
 │   ├── PlotManager.cpp           # Plot creation and management
 │   ├── FileHandler.cpp           # File loading and processing
 │   ├── PlotTypes.cpp             # Plot type implementations
@@ -131,6 +132,7 @@ Advance_ROOT_Plotting_dev/
 │   ├── CSVPreviewDialog.h        # CSV preview dialog
 │   ├── ColumnSelectorDialog.h    # Column selector
 │   ├── ColumnSelectorLinkDef.h   # ROOT linkdef
+│   ├── RootEntrySelector.h       # Entry selector GUI
 │   ├── PlotManager.h             # Plot management
 │   ├── DataReader.h              # Data reading utilities
 │   ├── FileHandler.h             # File handling
@@ -140,19 +142,6 @@ Advance_ROOT_Plotting_dev/
 │   ├── RootDataInspector.h       # Data inspection
 │   ├── ROOTFileBrowser.h         # File browser
 │   ├── ScriptEngine.h            # Script engine
-│ 
-├── RootEntrySelector/            # NEW: Entry selector tool
-│   ├── RootEntrySelector.h       # Entry selector GUI
-│   ├── RootEntrySelector.cpp     # Implementation
-│   ├── test_entry_selector.cpp   # Test program
-│   ├── run_entry_selector.C      # ROOT macro
-│   ├── Makefile                  # Build file
-│   └── docs/                     # Documentation
-│       ├── README.md
-│       ├── BUILD_INSTRUCTIONS.md
-│       ├── INTEGRATION_GUIDE.md
-│       ├── WORKFLOW_EXAMPLES.md
-│       └── QUICK_REFERENCE.md
 │
 ├── main.cpp                       # Application entry point
 ├── CMakeLists.txt                 # Build configuration
