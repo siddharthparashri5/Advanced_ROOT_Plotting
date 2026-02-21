@@ -58,7 +58,11 @@ CSVPreviewDialog::CSVPreviewDialog(const TGWindow* p, const char* filename)
     delimFrame->AddFrame(new TGLabel(delimFrame, "Delimiter:"),
         new TGLayoutHints(kLHintsLeft, 5, 5, 5, 2));
     
+    TGTextEntry* fDummyTxtEntry = new TGTextEntry();
+    UInt_t myBoxHeight = fDummyTxtEntry->GetHeight();
+    
     fDelimiterCombo = new TGComboBox(delimFrame, kDelimiterCombo);
+    fDelimiterCombo->SetHeight(myBoxHeight);
     fDelimiterCombo->AddEntry("Comma (,)", 0);
     fDelimiterCombo->AddEntry("Semicolon (;)", 1);
     fDelimiterCombo->AddEntry("Tab (\\t)", 2);
@@ -111,6 +115,7 @@ CSVPreviewDialog::CSVPreviewDialog(const TGWindow* p, const char* filename)
         new TGLayoutHints(kLHintsLeft, 5, 5, 5, 2));
     
     fEncodingCombo = new TGComboBox(encodingFrame, kEncodingCombo);
+    fEncodingCombo->SetHeight(myBoxHeight);
     fEncodingCombo->AddEntry("UTF-8", 0);
     fEncodingCombo->AddEntry("ISO-8859-1", 1);
     fEncodingCombo->AddEntry("ASCII", 2);
