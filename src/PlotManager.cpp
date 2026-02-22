@@ -49,35 +49,41 @@ void PlotManager::AddPlot(const ColumnData& data)
 {
     if (data.data.empty() || data.headers.empty()) {
         new TGMsgBox(gClient->GetRoot(), fMainGUI,
-            "No Data", 
+            "No Data",
             "No data loaded. Please load a CSV or TXT file first.\n"
             "ROOT files are viewed in the Inspector, not plotted directly.",
             kMBIconExclamation, kMBOk);
         return;
     }
-    
-    ColumnSelector* selector = new ColumnSelector(gClient->GetRoot(), data);
-    Int_t ret = selector->DoModal(); 
 
-    if (ret == 1) {
-        PlotConfig* config = selector->GetPlotConfig();
-        
-        if (config) {
-            fPlotConfigs.push_back(*config);
-            
-            TString plotDesc = Form("Plot %zu: %s", 
-                fPlotConfigs.size(), 
-                config->GetDescription().c_str());
-            
-            fMainGUI->AddPlotToListBox(plotDesc.Data(), (Int_t)fPlotConfigs.size() - 1);
-            
-            // Cleanup the config pointer if GetPlotConfig() created a new one
-            delete config; 
-        }
-    }
+    // Stack-allocate config and result — no heap ownership confusion
+    PlotConfig config;
+    bool result = false;
 
-    //Cleanup the dialog object
-    delete selector;
+    // ColumnSelectorDialog takes (parent, data*, config*, result*) and closes
+    // itself via DeleteWindow(). gClient->WaitFor() blocks the event loop
+    // until the dialog window is destroyed — this is the correct ROOT pattern.
+    ColumnSelectorDialog* dialog = new ColumnSelectorDialog(
+        fMainGUI,       // parent window
+        &data,          // column data (read-only)
+        &config,        // filled on OK
+        &result         // set true on OK, false on Cancel
+    );
+
+    // Block here until dialog calls DeleteWindow() (in DoOK / DoCancel)
+    gClient->WaitFor(dialog);
+
+    // At this point `dialog` is deleted — do NOT touch it
+    if (!result) return;
+
+    // Store the config and update the list box
+    fPlotConfigs.push_back(config);
+
+    TString plotDesc = Form("Plot %zu: %s",
+        fPlotConfigs.size(),
+        fPlotConfigs.back().GetDescription().c_str());
+
+    fMainGUI->AddPlotToListBox(plotDesc.Data(), (Int_t)fPlotConfigs.size() - 1);
 }
 
 // ============================================================================
