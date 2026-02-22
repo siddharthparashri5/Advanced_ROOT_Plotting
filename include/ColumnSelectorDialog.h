@@ -18,7 +18,7 @@
 // ============================================================================
 class ColumnSelectorDialog : public TGTransientFrame {
     //RQ_OBJECT("ColumnSelectorDialog")
-    //ClassDef(ColumnSelectorDialog, 0)
+    ClassDefOverride(ColumnSelectorDialog, 0)
 
 public:
     // Signature matches ColumnSelector.cpp line 7
@@ -33,8 +33,13 @@ public:
         gClient->WaitFor(this);
         return (*dialogResult) ? 1 : 0;
     }
-    virtual void CloseWindow() { UnmapWindow(); }
-    Bool_t ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2);
+
+    void CloseWindow() override { UnmapWindow(); }
+    Bool_t ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2) override;
+
+    ///// Problem part
+    //virtual void CloseWindow() { UnmapWindow(); }
+    //Bool_t ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2);
      
     void UpdateColumnVisibility();
 

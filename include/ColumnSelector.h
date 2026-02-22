@@ -29,7 +29,7 @@ public:
     Bool_t ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2);
 
     // ClassDef 0 avoids -Winconsistent-missing-override with ROOT 6.26
-    ClassDef(ColumnSelectorDialog, 0)
+    ClassDefOverride(ColumnSelectorDialog, 0)
 
 private:
     // Out-parameters — owned by the caller (ColumnSelector wrapper)

@@ -122,7 +122,7 @@ public:
     Bool_t ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2) override;
     void CloseWindow() override;
     
-    //ClassDef(RootEntrySelector, 0)
+    ClassDefOverride(RootEntrySelector, 0)
 };
 
 #endif // ROOKENTRYSELECTOR_H

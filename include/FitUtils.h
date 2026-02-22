@@ -86,7 +86,7 @@ public:
         Double_t xmin, xmax, ymin, ymax;
         graph->GetPoint(0, xmin, ymin);
         xmax = xmin;
-        ymin = ymin;
+        //ymin = ymin;
         ymax = ymin;
         
         for (int i = 0; i < graph->GetN(); i++) {

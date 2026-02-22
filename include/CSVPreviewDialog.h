@@ -49,8 +49,10 @@ public:
     Int_t DoModal();
     virtual void CloseWindow() override;
 
+    ClassDefOverride(CSVPreviewDialog, 0)
+
 protected:
-    virtual Bool_t ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2);
+    Bool_t ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2) override;
 
 private:
     // File information

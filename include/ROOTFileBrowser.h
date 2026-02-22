@@ -101,6 +101,8 @@ public:
     CanvasMode GetCanvasMode() const;
     Int_t GetNRows() const { return (Int_t)fNRowsEntry->GetNumber(); }
     Int_t GetNCols() const { return (Int_t)fNColsEntry->GetNumber(); }
+
+    ClassDefOverride(ROOTFileBrowser, 0)
 };
 
 #endif // ROOTFILEBROWSER_H
