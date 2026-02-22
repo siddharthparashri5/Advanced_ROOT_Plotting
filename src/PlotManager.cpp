@@ -76,7 +76,7 @@ void PlotManager::AddPlot(const ColumnData& data)
         }
     }
 
-    // 4. Cleanup the dialog object
+    //Cleanup the dialog object
     delete selector;
 }
 
