@@ -295,6 +295,10 @@ void FileHandler::LoadCSVWithSettings(const char* filepath, char delim,
     int dataRowCount = 0;
     while (std::getline(file, line)) {
         if (line.empty()) continue;
+        /////// To avoid warning message //    
+        if (dataRowCount == 0) {
+        Warning("FileHandler", "No data rows found in file");
+        }
         
         std::stringstream ss(line);
         std::string token;
