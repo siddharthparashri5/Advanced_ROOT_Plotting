@@ -105,7 +105,7 @@ A modern, user-friendly graphical interface for creating publication-quality plo
 ### 1. Clone or Download the Project
 ```bash
 git clone https://github.com/siddharthparashri5/Advanced_ROOT_Plotting.git
-cd Advance_ROOT_Plotting_dev
+cd Advanced_ROOT_Plotting
 mkdir build
 cd build
 cmake ..
