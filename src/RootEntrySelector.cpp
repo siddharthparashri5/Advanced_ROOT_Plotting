@@ -556,7 +556,6 @@ void RootEntrySelector::AddSelectionStep()
     std::cout << "  Description: " << step.GetDescription() << std::endl;
     std::cout << "=== AddSelectionStep() END ===\n" << std::endl;
 }
-
 // ============================================================================
 // Remove selected step from chain
 // ============================================================================
@@ -1128,6 +1127,7 @@ TCanvas* RootEntrySelector::PlotWithChain(const std::vector<SelectionStep>& chai
     
     return c;
 }
+
 
 /*
 TCanvas* RootEntrySelector::PlotWithChain(const std::vector<SelectionStep>& chain)
