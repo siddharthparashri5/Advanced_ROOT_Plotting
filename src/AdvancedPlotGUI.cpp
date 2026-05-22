@@ -124,6 +124,14 @@ void AdvancedPlotGUI::BuildFileSection()
     fileFrame->AddFrame(fEntrySelectorButton,new TGLayoutHints(kLHintsLeft, 5, 5, 2, 2));
 
     fileGroup->AddFrame(fileFrame, new TGLayoutHints(kLHintsExpandX, 5,5,5,5));
+
+    fLoadROOTToGUIButton = new TGTextButton(fileFrame,"Load ROOT to GUI...", kEntrySelectorLoadGUI);
+    fLoadROOTToGUIButton->Associate(this);
+    fLoadROOTToGUIButton->SetToolTipText(
+         "Pick a TTree or histogram from a ROOT file and load it into the\n"
+         "main GUI so 'Add Plot...' works for custom 1D/2D/3D plots");
+     fileFrame->AddFrame(fLoadROOTToGUIButton,
+         new TGLayoutHints(kLHintsLeft, 5, 5, 2, 2));
     
     // Add drag-and-drop instruction label
     TGLabel* dndLabel = new TGLabel(fileGroup, 
@@ -528,6 +536,20 @@ Bool_t AdvancedPlotGUI::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
                             fFileHandler->OpenEntrySelector(path.c_str());
                         }
                     }
+                    else if (parm1 == kEntrySelectorLoadGUI) {
+                        std::string path = fFileHandler->Browse();
+                        if (!path.empty()) {
+                            // Only accept ROOT files
+                            TString tpath(path.c_str());
+                            if (tpath.EndsWith(".root", TString::kIgnoreCase)) {
+                                fFileHandler->LoadROOTIntoGUI(path.c_str());
+                            } else {
+                                new TGMsgBox(gClient->GetRoot(), this,"Not a ROOT File","Please select a .root file.\n\n"
+                                    "For CSV/TXT files, use the Browse button instead.",
+                                    kMBIconExclamation, kMBOk);
+                                }
+                            }     
+                        }
                     break;
             }
             break;

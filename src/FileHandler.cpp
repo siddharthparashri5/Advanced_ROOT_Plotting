@@ -5,8 +5,10 @@
 #include "RootDataInspector.h"
 #include "DataReader.h"
 #include "RootEntrySelector.h"
+#include "ROOTBranchSelectorDialog.h"
 
 #include <TGFileDialog.h>
+#include <TGNumberEntry.h>
 #include <TGMsgBox.h>
 #include <TGClient.h>
 #include <TSystem.h>
@@ -132,9 +134,63 @@ void FileHandler::Load(const std::string& filepath)
         kMBIconAsterisk, kMBOk);
 }
 
+
+
+// ────────────────────────────────────────────────────────────────────────────
+// NEW METHOD  — FileHandler::LoadROOTIntoGUI()
+//
+// Called by:
+//   - The "ROOT Analysis → Load into GUI" button  (kEntrySelectorLoadGUI)
+//   - The yes/no dialog inside LoadRootFile() above
+//   - Directly from AdvancedPlotGUI::ProcessMessage() for the Browse button
+//     when the user selects a .root file and wants Add Plot to work
+// ────────────────────────────────────────────────────────────────────────────
+bool FileHandler::LoadROOTIntoGUI(const char* filepath)
+{
+    ROOTBranchSelectorDialog* dlg =
+        new ROOTBranchSelectorDialog(fMainGUI, filepath);
+
+    Int_t ret = dlg->DoModal();
+
+    if (ret != 1) {
+        delete dlg;
+        return false;
+    }
+
+    // Copy the populated ColumnData out of the dialog
+    fCurrentData = dlg->GetColumnData();
+    delete dlg;
+
+    if (fCurrentData.GetNumColumns() == 0 || fCurrentData.GetNumRows() == 0) {
+        new TGMsgBox(gClient->GetRoot(), fMainGUI,
+            "Warning",
+            "No data was loaded (empty result).\n"
+            "Try selecting different branches or a smaller entry range.",
+            kMBIconExclamation, kMBOk);
+        return false;
+    }
+
+    // Enable the Add Plot and Create Plots buttons
+    fMainGUI->EnablePlotControls(kTRUE);
+
+    new TGMsgBox(gClient->GetRoot(), fMainGUI,
+        "ROOT Data Loaded",
+        Form("Successfully loaded into GUI!\n\n"
+             "Columns (branches): %d\n"
+             "Rows (entries):     %d\n\n"
+             "You can now use 'Add Plot...' to configure plots.",
+             fCurrentData.GetNumColumns(),
+             fCurrentData.GetNumRows()),
+        kMBIconAsterisk, kMBOk);
+
+    return true;
+}
+
+
 // ============================================================================
 // Load ROOT file with content browser
 // ============================================================================
+/*
 void FileHandler::LoadRootFile(const char* filepath)
 {
     // Close previous file
@@ -215,6 +271,76 @@ void FileHandler::LoadRootFile(const char* filepath)
                  "Objects have been plotted in separate canvases.",
                  (int)selectedObjects.size()),
             kMBIconAsterisk, kMBOk);
+    }
+}
+
+*/
+
+void FileHandler::LoadRootFile(const char* filepath)
+{
+    // Close previous file
+    if (fCurrentRootFile) {
+        fCurrentRootFile->Close();
+        delete fCurrentRootFile;
+        fCurrentRootFile = nullptr;
+    }
+
+    // Open the object-browser dialog (existing ROOTFileBrowser)
+    ROOTFileBrowser* browser = new ROOTFileBrowser(gClient->GetRoot(), filepath);
+    Int_t ret = browser->DoModal();
+
+    if (ret == 0) {                         // user cancelled
+        gSystem->ProcessEvents();
+        gSystem->Sleep(100);
+        delete browser;
+        return;
+    }
+
+    Bool_t  showBrowser     = browser->ShowBrowser();
+    std::vector<ROOTObjectInfo> selectedObjects = browser->GetSelectedObjects();
+    gSystem->ProcessEvents();
+    gSystem->Sleep(100);
+    delete browser;
+
+    // Open the file for our use
+    fCurrentRootFile = TFile::Open(filepath, "READ");
+    if (!fCurrentRootFile || fCurrentRootFile->IsZombie()) {
+        new TGMsgBox(gClient->GetRoot(), nullptr,
+            "Error", Form("Cannot open ROOT file:\n%s", filepath),
+            kMBIconStop, kMBOk);
+        fCurrentRootFile = nullptr;
+        return;
+    }
+
+    // ── ret == 2  →  TBrowser only ──────────────────────────────────────────
+    if (ret == 2 || showBrowser) {
+        new TBrowser("browser", fCurrentRootFile);
+        return;
+    }
+
+    // ── ret == 1  →  "Load for GUI"  ────────────────────────────────────────
+    if (ret == 1) {
+        // Direct-plot the objects (existing behaviour)
+        for (const auto& objInfo : selectedObjects) {
+            TObject* obj = fCurrentRootFile->Get(objInfo.name.c_str());
+            if (!obj) continue;
+            if (objInfo.category == "Histogram") PlotHistogram(obj, objInfo.name.c_str());
+            else if (objInfo.category == "Graph") PlotGraph(obj, objInfo.name.c_str());
+            else if (objInfo.category == "Tree")  ShowTreeInfo(obj, objInfo.name.c_str());
+        }
+
+        // NOW also ask if the user wants to load into the plot-config workflow
+        Int_t answer = 0;
+        new TGMsgBox(gClient->GetRoot(), fMainGUI,
+            "Load into GUI?",
+            "Objects plotted directly.\n\n"
+            "Do you also want to load a TTree/histogram into the\n"
+            "main GUI so you can use 'Add Plot' for custom plots?",
+            kMBIconQuestion, kMBYes | kMBNo, &answer);
+
+        if (answer == kMBYes) {
+            LoadROOTIntoGUI(filepath);
+        }
     }
 }
 
