@@ -33,6 +33,7 @@ public:
     std::string Browse();
     void Load(const std::string& filepath);
     void LoadRootFile(const char* filepath);
+    bool LoadROOTIntoGUI(const char* filepath);
     void LoadCSVFile(const char* filepath);
     void LoadCSVWithSettings(const char* filepath, char delim, 
                              Int_t skipRows, Bool_t useHeader);

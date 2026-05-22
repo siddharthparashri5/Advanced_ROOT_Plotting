@@ -38,6 +38,7 @@ private:
         kSaveScriptButton,
         kClearEditorButton,
         kEntrySelector,
+        kEntrySelectorLoadGUI,
         kClearOutputButton
     };
 
@@ -58,6 +59,7 @@ private:
     TGComboBox* fFitFunctionCombo;
     TGTextEntry* fCustomFuncEntry;
     TGTextButton* fEntrySelectorButton;
+     TGTextButton* fLoadROOTToGUIButton;
     
     // Script panel
     TGComboBox* fScriptLangCombo;
