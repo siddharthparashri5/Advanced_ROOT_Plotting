@@ -56,6 +56,7 @@ set(LIB_SOURCES
     src/ScriptEngine.cpp
     src/PlotTypes.cpp
     src/RootEntrySelector.cpp
+    src/ROOTBranchSelectorDialog.cpp
 )
 
 set(CMAKE_ROOT_INCLUDE_PATH ${CMAKE_SOURCE_DIR}/include)
@@ -68,6 +69,7 @@ set(DICT_HEADERS
     RootDataInspector.h
     ROOTFileBrowser.h
     RootEntrySelector.h
+    ROOTBranchSelectorDialog.h
 )
 
 # ============================================================================
