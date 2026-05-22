@@ -21,6 +21,7 @@ A modern, user-friendly graphical interface for creating publication-quality plo
   - Load TTree objects
   - Drag-and-drop support from TBrowser
   - Interactive ROOT File Browser with object preview
+  - Load a ROOT file directly to GUI for Plotting 
 
 ### NEW: GUI based ROOT Analysis and Filtering 
 - **Entry Range Selection**: Select specific event ranges from TTrees
@@ -116,34 +117,36 @@ make -j<N>
 ```
 Advance_ROOT_Plotting_dev/
 ├── src/
-│   ├── AdvancedPlotGUI.cpp       # Main GUI implementation
-│   ├── CSVPreviewDialog.cpp      # CSV preview and import
-│   ├── ColumnSelectorDialog.cpp  # Column selection dialog     
-│   ├── ColumnSelectorDict.cpp    # ROOT dictionary
-│   ├── RootEntrySelector.cpp     # Entry selector GUI
-│   ├── PlotManager.cpp           # Plot creation and management
-│   ├── FileHandler.cpp           # File loading and processing
-│   ├── PlotTypes.cpp             # Plot type implementations
-│   ├── ProjectDict.cpp           # ROOT dictionary
-│   ├── RootDataInspector.cpp     # ROOT data inspection
-│   ├── ROOTFileBrowser.cpp       # ROOT file browser dialog
-│   ├── ScriptEngine.cpp          # Script execution engine
+│   ├── AdvancedPlotGUI.cpp                   # Main GUI implementation
+│   ├── CSVPreviewDialog.cpp                  # CSV preview and import
+│   ├── ColumnSelectorDialog.cpp              # Column selection dialog     
+│   ├── ColumnSelectorDict.cpp                # ROOT dictionary
+│   ├── RootEntrySelector.cpp                 # Entry selector GUI
+│   ├── PlotManager.cpp                       # Plot creation and management
+│   ├── FileHandler.cpp                       # File loading and processing
+│   ├── PlotTypes.cpp                         # Plot type implementations
+│   ├── ProjectDict.cpp                       # ROOT dictionary
+│   ├── RootDataInspector.cpp                 # ROOT data inspection
+│   ├── ROOTFileBrowser.cpp                   # ROOT file browser dialog
+│   ├── ScriptEngine.cpp                      # Script execution engine
+│   ├── ROOTBranchSelectorDialog.cpp          # Root branch selector dialog
 │   
 ├── include/
-│   ├── AdvancedPlotGUI.h         # Main GUI header
-│   ├── CSVPreviewDialog.h        # CSV preview dialog
-│   ├── ColumnSelectorDialog.h    # Column selector
-│   ├── ColumnSelectorLinkDef.h   # ROOT linkdef
-│   ├── RootEntrySelector.h       # Entry selector GUI
-│   ├── PlotManager.h             # Plot management
-│   ├── DataReader.h              # Data reading utilities
-│   ├── FileHandler.h             # File handling
-│   ├── PlotTypes.h               # Plot type definitions
-│   ├── ErrorHandling.h           # Error utilities
-│   ├── FitUtils.h                # Fitting utilities
-│   ├── RootDataInspector.h       # Data inspection
-│   ├── ROOTFileBrowser.h         # File browser
-│   ├── ScriptEngine.h            # Script engine
+│   ├── AdvancedPlotGUI.h                   # Main GUI header
+│   ├── CSVPreviewDialog.h                  # CSV preview dialog
+│   ├── ColumnSelectorDialog.h              # Column selector
+│   ├── ColumnSelectorLinkDef.h             # ROOT linkdef
+│   ├── RootEntrySelector.h                 # Entry selector GUI
+│   ├── PlotManager.h                       # Plot management
+│   ├── DataReader.h                        # Data reading utilities
+│   ├── FileHandler.h                       # File handling
+│   ├── PlotTypes.h                         # Plot type definitions
+│   ├── ErrorHandling.h                     # Error utilities
+│   ├── FitUtils.h                          # Fitting utilities
+│   ├── RootDataInspector.h                 # Data inspection
+│   ├── ROOTFileBrowser.h                   # File browser
+│   ├── ScriptEngine.h                      # Script engine
+│   ├── ROOTBranchSelectorDialog.h          # Root branch selector dialog
 │
 ├── main.cpp                       # Application entry point
 ├── CMakeLists.txt                 # Build configuration
@@ -198,7 +201,7 @@ root -l
 
 ### Loading ROOT Files
 
-1. **Click "Browse"** button
+1. **Click "Browse"** button for Analysis or **Click "Load ROOT to GUI"* to load a file to GUI plotting
 2. **Select your .root file** in the file browser
 3. **ROOT File Browser dialog** shows:
    - All histograms (TH1*, TH2*, TH3*)
