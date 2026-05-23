@@ -2,7 +2,7 @@
 
 ###  Major New Features
 
-#### ROOT Branch Selector Dialog ✨
+#### ROOT Branch Selector Dialog 
 - **Interactive TTree Browser**: Browse and select TTree branches from ROOT files
 - **Multi-select Branches**: Ctrl+click to select multiple numeric branches at once
 - **Smart Entry Range Control**: Specify maximum entries to load (defaults to min(50000, total) for responsive performance)
@@ -158,6 +158,6 @@ Special thanks to the ROOT framework team for their robust C++ libraries and TGF
 
 ---
 
-**🚀 Download & Try:** [Get Latest Release](https://github.com/siddharthparashri5/Advance_ROOT_Plotting/releases)
+** Download & Try:** [Get Latest Release](https://github.com/siddharthparashri5/Advance_ROOT_Plotting/releases)
 
-**Happy Plotting!** 📊
+**Happy Plotting!** 
