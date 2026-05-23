@@ -1,0 +1,163 @@
+##  Version 2.3 Release — ROOT Branch Selector & Enhanced Features
+
+###  Major New Features
+
+#### ROOT Branch Selector Dialog ✨
+- **Interactive TTree Browser**: Browse and select TTree branches from ROOT files
+- **Multi-select Branches**: Ctrl+click to select multiple numeric branches at once
+- **Smart Entry Range Control**: Specify maximum entries to load (defaults to min(50000, total) for responsive performance)
+- **Histogram Auto-loading**: Load TH1/TH2/TH3 histograms directly as tabular data
+- **Direct GUI Integration**: Loaded data flows into the main GUI's ColumnData system — Add Plot works perfectly on ROOT files now
+
+#### Full ROOT File Integration
+- New "Load ROOT to GUI..." button in file panel
+- ROOT TTree branches load directly into plot configuration workflow
+- 1D/2D/3D histogram creation from TTree data
+- Support for histogram extraction (TH1/TH2/TH3 all variants)
+- Entry limiting prevents memory bloat on large files
+
+#### Script Panel (From v2.0)
+- **Multi-line Script Editor**: Write and execute complete ROOT/C++ or Python scripts
+- **Command Line Interface**: Single-line command execution for quick operations
+- **Output Viewer**: Separate tab for viewing script output with stream redirection
+- **File Operations**: Load and save scripts with auto-language detection
+
+#### Dual Language Support (From v2.0)
+- Execute ROOT/C++ macros and code
+- Run Python scripts with full ROOT bindings
+- Easy language switching
+
+#### Enhanced ROOT File Support (From v2.0)
+- ROOT files now open directly in TBrowser
+- Full access to all ROOT file objects
+- Interactive file exploration
+- **NEW:** Load TTree branches into main plotting workflow
+
+###  Improvements
+- Support for all TH1/TH2/TH3 histogram variants (D, F, I, S, C)
+- ROOT 6.26 API compatibility (GetSelectedEntries, TGNumberEntry)
+- Improved directory structure (include/, src/, obj/)
+- Professional CMake build system with multiple targets
+- Better error handling and user feedback
+- Enhanced canvas management
+- Memory-efficient branch loading with configurable limits
+- Responsive UI with entry-limiting spinners
+
+###  Documentation
+- Comprehensive README with examples
+- Script panel usage guide
+- ROOT file integration workflow documentation
+- Troubleshooting documentation
+- Installation improvements
+- Release notes with detailed feature descriptions
+
+###  Bug Fixes
+- ✅ Fixed: "Add Plot" button always disabled for ROOT files
+- ✅ Fixed: No way to load TTree branches into GUI
+- ✅ Fixed: Dictionary generation issues
+- ✅ Fixed: ROOT 6.26 API compatibility (GetSelectedEntries signature)
+- ✅ Fixed: Memory management in branch loading
+- ✅ Fixed: Better stream handling
+
+###  What's New in v2.3
+
+| Feature | v2.0 | v2.3 |
+|---------|------|------|
+| ROOT File Support | TBrowser only | TBrowser + GUI integration |
+| Load TTree Branches | ❌ Not possible | ✅ Full support with multi-select |
+| Load Histogram Data | ❌ Not possible | ✅ Auto-convert to tabular |
+| Entry Range Control | — | ✅ Max entries spinner |
+| Add Plot on ROOT Data | ❌ Fails silently | ✅ Works perfectly |
+| 1D/2D/3D from TTree | ❌ No | ✅ Yes, with full customization |
+| Fit on TTree Data | ❌ No | ✅ Yes |
+| Overlay ROOT Plots | ❌ No | ✅ Yes |
+
+###  Usage Example
+
+**Loading TTree Data:**
+```
+1. Click "Load ROOT to GUI..."
+2. Browse → select mydata.root
+3. Dialog shows: Objects [events] [h_mass] ...
+4. Select "events" TTree → branches list shows [Pt] [Eta] [Phi] ...
+5. Ctrl+click to select [Pt] [Eta] [Phi], set max entries = 50000
+6. Click "Load into GUI"
+7. Success message: "Loaded: 3 columns × 50000 rows"
+8. "Add Plot..." button now ENABLED
+9. Configure TH2D(Pt vs Eta), create plot with COLZ option
+10. Add another plot: TH1D(Pt), apply Gaussian fit
+11. Done! Full plotting pipeline on ROOT TTree data
+```
+
+###  Installation
+
+```bash
+git clone https://github.com/siddharthparashri5/Advance_ROOT_Plotting.git
+cd Advance_ROOT_Plotting
+mkdir -p build && cd build
+cmake ..
+make -j$(nproc)
+./AdvancedPlotGUIApp
+```
+
+###  Requirements
+- ROOT 6.x or later (tested with 6.26.06)
+- GCC 7+ or Clang 5+
+- Python 3.x with development libraries
+- CMake 3.10+
+
+###  Key Improvements Over v2.0
+
+**ROOT File Workflow:**
+- Before: "Add Plot" disabled for ROOT files, no way to load branches
+- After: Full integration with multi-select branch picking, entry limiting, histogram support
+
+**User Experience:**
+- New "Load ROOT to GUI..." button for intuitive branch selection
+- Clear 3-step dialog UI (object → branches → entry range)
+- Success feedback with loaded row/column count
+- Responsive loading with default entry limits
+
+**Technical:**
+- ROOT 6.26 API compatibility verified
+- Memory-efficient branch reading with SetBranchAddress loop
+- Proper cleanup and error handling
+- No breaking changes — fully backward compatible
+
+###  Full Changelog
+
+**New Files:**
+- `ROOTBranchSelectorDialog.h/cpp` — Modal dialog for branch selection and loading
+
+**Modified Files:**
+- `FileHandler.h/cpp` — Added LoadROOTIntoGUI() method
+- `AdvancedPlotGUI.h/cpp` — New "Load ROOT to GUI..." button
+- `CMakeLists.txt` — Updated build configuration
+
+See [GitHub Releases](https://github.com/siddharthparashri5/Advance_ROOT_Plotting/releases) and README.md for complete details.
+
+###  Testing & Quality
+
+- ✅ Compiled and tested against ROOT 6.26.06
+- ✅ All ROOT 6.26 API compatibility issues fixed
+- ✅ Memory safety verified (proper cleanup, no leaks)
+- ✅ User workflow tested (branch selection → plotting)
+- ✅ Error handling verified (user-friendly messages)
+- ✅ Backward compatible (no existing features broken)
+
+###  Documentation
+
+- **README.md** — Project overview and quick start
+- **INSTALLATION.md** — Detailed installation guide
+- **USAGE.md** — Feature usage guide with examples
+- **RELEASE_NOTES_v2.3.md** — Comprehensive feature documentation
+
+###  Thank You
+
+Special thanks to the ROOT framework team for their robust C++ libraries and TGFrame GUI toolkit.
+
+---
+
+**🚀 Download & Try:** [Get Latest Release](https://github.com/siddharthparashri5/Advance_ROOT_Plotting/releases)
+
+**Happy Plotting!** 📊
